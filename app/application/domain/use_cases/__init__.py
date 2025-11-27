@@ -16,3 +16,8 @@ class ISimulateScenarioUseCase(ABC):
     @abstractmethod
     async def execute(self, rainfall_change: float, crop_type: str = "rice", region: str = "jawa-barat", season: str = "wet-season") -> List[ForecastData]:
         pass
+
+class IExportForecastUseCase(ABC):
+    @abstractmethod
+    async def execute(self, crop_type: str, region: str, season: str, format: str = "csv") -> str:
+        pass

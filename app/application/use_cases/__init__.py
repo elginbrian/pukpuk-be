@@ -3,6 +3,7 @@ from typing import List
 from ..domain.entities import ForecastData, Metrics
 from ..domain.use_cases import IGetForecastUseCase, IGetMetricsUseCase, ISimulateScenarioUseCase
 from ..domain.interfaces import IForecastRepository, IMetricsRepository
+from ...infrastructure.utils.export_service import ExportService
 
 class GetForecastUseCase(IGetForecastUseCase):
     def __init__(self, forecast_repo: IForecastRepository, metrics_repo: IMetricsRepository):
