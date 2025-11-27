@@ -165,8 +165,7 @@ class GenerateAIInsightUseCase(IGenerateAIInsightUseCase):
         from ...infrastructure.config.settings import settings
 
         if not settings.gemini_api_key:
-            # Fallback to mock responses if API key not configured
-            return self._generate_mock_response(query), self._generate_suggestions(query)
+            return "Gemini API key not configured. Please set GEMINI_API_KEY in your .env file.", []
 
         try:
             genai.configure(api_key=settings.gemini_api_key)
@@ -211,8 +210,8 @@ Keep responses concise but informative."""
             return ai_response, suggestions
 
         except Exception as e:
-            # Fallback to mock response on error
-            return self._generate_mock_response(query), self._generate_suggestions(query)
+            # Return error message in chat instead of raising exception
+            return f"Failed to generate AI response using Gemini API: {str(e)}", []
 
     async def _build_comprehensive_context(self, crop_type: str, region: str, season: str) -> str:
         """Build comprehensive context from all available data"""
@@ -258,15 +257,6 @@ General Supply Chain Knowledge:
 - Performance metrics help track forecasting accuracy and operational efficiency"""
 
         return full_context
-
-    def _generate_mock_response(self, query: str) -> str:
-        query_lower = query.lower()
-        if "high demand" in query_lower or "kecamatan" in query_lower:
-            return "Based on the CatBoost multivariate forecasting model, Kecamatan X shows elevated demand due to three key factors:\n\n1. **Seasonal patterns**: Rice planting season begins in 3 weeks\n2. **Weather forecast**: 15% above-average rainfall predicted\n3. **Historical trends**: Last year showed 18% demand spike in this period\n\nRecommended action: Increase stock allocation by 12% (approx. 2.1 tons) to meet projected demand of 19.4 tons."
-        elif "warehouse b" in query_lower or "dead-stock" in query_lower:
-            return "Warehouse B dead-stock analysis:\n\n**Issue**: 680 tons with no movement for 18 days indicates dead-stock risk.\n\n**Root cause**: Overstocking during low-demand period, regional demand shift to neighboring areas.\n\n**Recommended actions**:\n1. Transfer 250 tons to Warehouse A (cost: Rp 2.1M via Route B)\n2. Redistribute 150 tons to Kios network in high-demand areas\n3. Reduce next month's allocation by 40%\n\n**Cost savings**: Estimated Rp 8.5M in storage and opportunity costs."
-        else:
-            return "I've analyzed your query using the latest supply chain data. Could you provide more specific details about what aspect you'd like me to focus on? I can help with demand forecasting, route optimization, inventory analysis, or risk detection."
 
     def _generate_suggestions(self, query: str) -> List[str]:
         base_suggestions = [

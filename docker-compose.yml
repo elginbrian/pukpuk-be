@@ -8,6 +8,7 @@ services:
     environment:
       - DEBUG=false
       - DATABASE_URL=mongodb://mongodb:27017
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
     depends_on:
       - mongodb
     restart: unless-stopped
