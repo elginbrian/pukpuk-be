@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     debug: bool = False
     database_url: str = "mongodb://localhost:27017"
     database_name: str = "pukpuk_db"
+    gemini_api_key: str = ""
 
     class Config:
         env_file = ".env"

@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 import io
 from app.application.container import container
-from app.application.use_cases import GetForecastUseCase, GetMetricsUseCase, SimulateScenarioUseCase
+from app.application.use_cases import GetForecastUseCase, GetMetricsUseCase, SimulateScenarioUseCase, GenerateAIInsightUseCase
 from app.infrastructure.utils.export_service import ExportService
 
 router = APIRouter(prefix="/forecasting", tags=["forecasting"])
@@ -29,6 +29,16 @@ class ForecastRequest(BaseModel):
 class ScenarioRequest(BaseModel):
     rainfall_change: float
 
+class AIInsightRequest(BaseModel):
+    query: str
+    crop_type: str = "rice"
+    region: str = "jawa-barat"
+    season: str = "wet-season"
+
+class AIInsightResponse(BaseModel):
+    response: str
+    suggestions: List[str]
+
 # Dependency injection
 def get_forecast_use_case() -> GetForecastUseCase:
     return container.get_forecast_use_case()
@@ -38,6 +48,9 @@ def get_metrics_use_case() -> GetMetricsUseCase:
 
 def get_simulate_scenario_use_case() -> SimulateScenarioUseCase:
     return container.simulate_scenario_use_case()
+
+def get_generate_ai_insight_use_case() -> GenerateAIInsightUseCase:
+    return container.generate_ai_insight_use_case()
 
 @router.get("/metrics", response_model=Metrics)
 async def get_metrics(
@@ -102,3 +115,11 @@ async def export_forecast_results(
     else:  # json
         json_data = ExportService.export_forecast_to_json(forecast_data, metrics)
         return json_data
+
+@router.post("/ai-insight", response_model=AIInsightResponse)
+async def generate_ai_insight(
+    request: AIInsightRequest,
+    use_case: GenerateAIInsightUseCase = Depends(get_generate_ai_insight_use_case)
+):
+    """Generate AI-powered insights for supply chain queries"""
+    return await use_case.execute(request.query, request.crop_type, request.region, request.season)

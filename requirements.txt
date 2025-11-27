@@ -5,3 +5,4 @@ dependency-injector
 motor
 pymongo
 beanie
+google-generativeai

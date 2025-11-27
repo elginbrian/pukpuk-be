@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from ..entities import ForecastData, Metrics
+from ..entities import ForecastData, Metrics, AIInsightResponse
 
 class IGetForecastUseCase(ABC):
     @abstractmethod
@@ -20,4 +20,9 @@ class ISimulateScenarioUseCase(ABC):
 class IExportForecastUseCase(ABC):
     @abstractmethod
     async def execute(self, crop_type: str, region: str, season: str, format: str = "csv") -> str:
+        pass
+
+class IGenerateAIInsightUseCase(ABC):
+    @abstractmethod
+    async def execute(self, query: str, crop_type: str, region: str, season: str) -> AIInsightResponse:
         pass
