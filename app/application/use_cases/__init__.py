@@ -10,14 +10,16 @@ class GetForecastUseCase(IGetForecastUseCase):
         self.metrics_repo = metrics_repo
 
     async def execute(self, crop_type: str, region: str, season: str) -> List[ForecastData]:
-        # Try to get from database first
+        # Get data from repository (will return empty list if database not available)
         data = await self.forecast_repo.get_forecast_data(crop_type, region, season)
         if data:
             return data
 
-        # Generate mock data if not found
-        data = self._generate_forecast_data(crop_type, region, season)
-        await self.forecast_repo.save_forecast_data(data)
+        # Generate and save data only if database is available
+        from ...infrastructure.database.database import is_database_available
+        if is_database_available():
+            data = self._generate_forecast_data(crop_type, region, season)
+            await self.forecast_repo.save_forecast_data(data)
         return data
 
     def _generate_forecast_data(self, crop_type: str, region: str, season: str) -> List[ForecastData]:
@@ -44,15 +46,8 @@ class GetMetricsUseCase(IGetMetricsUseCase):
         self.metrics_repo = metrics_repo
 
     async def execute(self, crop_type: str, region: str, season: str) -> Metrics:
-        # Try to get from database first
-        metrics = await self.metrics_repo.get_latest_metrics(crop_type, region, season)
-        if metrics:
-            return metrics
-
-        # Generate mock metrics if not found
-        metrics = self._generate_metrics(crop_type, region, season)
-        await self.metrics_repo.save_metrics(metrics)
-        return metrics
+        # Get metrics from repository (handles database availability)
+        return await self.metrics_repo.get_latest_metrics(crop_type, region, season)
 
     def _generate_metrics(self, crop_type: str, region: str, season: str) -> Metrics:
         return Metrics(
@@ -72,7 +67,10 @@ class SimulateScenarioUseCase(ISimulateScenarioUseCase):
     async def execute(self, rainfall_change: float, crop_type: str = "rice", region: str = "jawa-barat", season: str = "wet-season") -> List[ForecastData]:
         # Get base forecast data
         data = await self.forecast_repo.get_forecast_data(crop_type, region, season)
-        if not data:
+        
+        # If no data and database is available, generate base data
+        from ...infrastructure.database.database import is_database_available
+        if not data and is_database_available():
             # Generate base data
             months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep"]
             data = []
@@ -88,10 +86,12 @@ class SimulateScenarioUseCase(ISimulateScenarioUseCase):
                     region=region,
                     season=season
                 ))
+            await self.forecast_repo.save_forecast_data(data)
 
-        # Apply rainfall change to predictions
-        for item in data:
-            if item.predicted:
-                item.predicted *= (1 + rainfall_change / 100)
+        # Apply rainfall change to predictions if we have data
+        if data:
+            for item in data:
+                if item.predicted:
+                    item.predicted *= (1 + rainfall_change / 100)
 
         return data

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .infrastructure.config.settings import Settings
-from .infrastructure.database.database import init_database, close_database
+from .infrastructure.database.database import init_database, close_database, seed_database
 from .application.handler.routes.forecasting import router as forecasting_router
 
 # Initialize settings
@@ -27,6 +27,7 @@ app.include_router(forecasting_router)
 @app.on_event("startup")
 async def startup_event():
     await init_database()
+    await seed_database()
 
 @app.on_event("shutdown")
 async def shutdown_event():
