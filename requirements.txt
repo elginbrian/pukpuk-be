@@ -2,3 +2,6 @@ fastapi
 uvicorn[standard]
 pydantic-settings
 dependency-injector
+motor
+pymongo
+beanie

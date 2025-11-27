@@ -7,4 +7,20 @@ services:
       - "8000:8000"
     environment:
       - DEBUG=false
+      - DATABASE_URL=mongodb://mongodb:27017
+    depends_on:
+      - mongodb
     restart: unless-stopped
+
+  mongodb:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=pukpuk_db
+    volumes:
+      - mongodb_data:/data/db
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:

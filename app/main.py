@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .infrastructure.config.settings import Settings
+from .infrastructure.database.database import init_database, close_database
 from .application.handler.routes.forecasting import router as forecasting_router
 
 # Initialize settings
@@ -14,7 +15,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  
+    allow_origins=["http://localhost:3000", "https://pukpuk-id.vercel.app", "http://localhost:8000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -22,6 +23,14 @@ app.add_middleware(
 
 # Include routers
 app.include_router(forecasting_router)
+
+@app.on_event("startup")
+async def startup_event():
+    await init_database()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await close_database()
 
 @app.get("/")
 async def root():
