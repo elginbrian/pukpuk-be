@@ -169,7 +169,7 @@ class GenerateAIInsightUseCase(IGenerateAIInsightUseCase):
 
         try:
             genai.configure(api_key=settings.gemini_api_key)
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            model = genai.GenerativeModel('gemini-2.5-flash')
 
             # Get comprehensive data from database
             context = await self._build_comprehensive_context(crop_type, region, season)
