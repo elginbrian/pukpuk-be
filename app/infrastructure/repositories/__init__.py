@@ -90,9 +90,10 @@ class ChatSessionRepository(IChatSessionRepository):
         self.database = database
 
     async def create_session(self, crop_type: str, region: str, season: str) -> ChatSession:
+        from datetime import datetime
+        
         if self.database is None or not is_database_available():
            
-            from datetime import datetime
             # Create a mock object with the same interface
             class MockChatSession:
                 def __init__(self, session_id, created_at, last_activity, crop_type, region, season):

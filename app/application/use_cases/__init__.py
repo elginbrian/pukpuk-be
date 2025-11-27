@@ -260,9 +260,10 @@ General Supply Chain Knowledge:
         return full_context
 
     def _generate_mock_response(self, query: str) -> str:
-        if query.lower().includes("high demand") or query.lower().includes("kecamatan"):
+        query_lower = query.lower()
+        if "high demand" in query_lower or "kecamatan" in query_lower:
             return "Based on the CatBoost multivariate forecasting model, Kecamatan X shows elevated demand due to three key factors:\n\n1. **Seasonal patterns**: Rice planting season begins in 3 weeks\n2. **Weather forecast**: 15% above-average rainfall predicted\n3. **Historical trends**: Last year showed 18% demand spike in this period\n\nRecommended action: Increase stock allocation by 12% (approx. 2.1 tons) to meet projected demand of 19.4 tons."
-        elif query.lower().includes("warehouse b") or query.lower().includes("dead-stock"):
+        elif "warehouse b" in query_lower or "dead-stock" in query_lower:
             return "Warehouse B dead-stock analysis:\n\n**Issue**: 680 tons with no movement for 18 days indicates dead-stock risk.\n\n**Root cause**: Overstocking during low-demand period, regional demand shift to neighboring areas.\n\n**Recommended actions**:\n1. Transfer 250 tons to Warehouse A (cost: Rp 2.1M via Route B)\n2. Redistribute 150 tons to Kios network in high-demand areas\n3. Reduce next month's allocation by 40%\n\n**Cost savings**: Estimated Rp 8.5M in storage and opportunity costs."
         else:
             return "I've analyzed your query using the latest supply chain data. Could you provide more specific details about what aspect you'd like me to focus on? I can help with demand forecasting, route optimization, inventory analysis, or risk detection."
