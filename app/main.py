@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .infrastructure.config.settings import Settings
 from .infrastructure.database.database import init_database, close_database, seed_database
 from .application.handler.routes.forecasting import router as forecasting_router
+from .application.handler.routes.ai_insight import router as ai_insight_router
 
 # Initialize settings
 settings = Settings()
@@ -23,6 +24,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(forecasting_router)
+app.include_router(ai_insight_router)
 
 @app.on_event("startup")
 async def startup_event():

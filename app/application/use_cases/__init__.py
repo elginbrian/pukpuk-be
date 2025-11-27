@@ -1,8 +1,8 @@
 import random
-from typing import List
-from ..domain.entities import ForecastData, Metrics, AIInsight, AIInsightResponse
-from ..domain.use_cases import IGetForecastUseCase, IGetMetricsUseCase, ISimulateScenarioUseCase, IGenerateAIInsightUseCase
-from ..domain.interfaces import IForecastRepository, IMetricsRepository, IAIInsightsRepository
+from typing import List, Optional
+from ..domain.entities import ForecastData, Metrics, AIInsight, AIInsightResponse, ChatSession, ChatMessage
+from ..domain.use_cases import IGetForecastUseCase, IGetMetricsUseCase, ISimulateScenarioUseCase, IGenerateAIInsightUseCase, IChatSessionUseCase
+from ..domain.interfaces import IForecastRepository, IMetricsRepository, IAIInsightsRepository, IChatSessionRepository
 from ...infrastructure.utils.export_service import ExportService
 import google.generativeai as genai
 from datetime import datetime
@@ -100,18 +100,30 @@ class SimulateScenarioUseCase(ISimulateScenarioUseCase):
         return data
 
 class GenerateAIInsightUseCase(IGenerateAIInsightUseCase):
-    def __init__(self, ai_insights_repo: IAIInsightsRepository, forecast_repo: IForecastRepository, metrics_repo: IMetricsRepository):
+    def __init__(self, ai_insights_repo: IAIInsightsRepository, forecast_repo: IForecastRepository, metrics_repo: IMetricsRepository, chat_session_repo: IChatSessionRepository):
         self.ai_insights_repo = ai_insights_repo
         self.forecast_repo = forecast_repo
         self.metrics_repo = metrics_repo
+        self.chat_session_repo = chat_session_repo
 
-    async def execute(self, query: str, crop_type: str, region: str, season: str) -> AIInsightResponse:
+    async def execute(self, query: str, crop_type: str, region: str, season: str, session_id: Optional[str] = None) -> AIInsightResponse:
         # Get current forecast data and metrics for context
         forecast_data = await self.forecast_repo.get_forecast_data(crop_type, region, season)
         metrics = await self.metrics_repo.get_latest_metrics(crop_type, region, season)
 
+        # Load conversation history if session_id provided
+        conversation_history = []
+        if session_id:
+            try:
+                session = await self.chat_session_repo.get_session(session_id)
+                if session:
+                    conversation_history = session.messages[-10:]  # Last 10 messages for context
+            except Exception:
+                # If session loading fails, continue without history
+                pass
+
         # Generate AI response using Gemini
-        ai_response, suggestions = await self._generate_ai_response(query, forecast_data, metrics, crop_type, region, season)
+        ai_response, suggestions = await self._generate_ai_response(query, forecast_data, metrics, crop_type, region, season, conversation_history)
 
         # Save the insight to database if available
         insight = AIInsight(
@@ -125,9 +137,29 @@ class GenerateAIInsightUseCase(IGenerateAIInsightUseCase):
         )
         await self.ai_insights_repo.save_insight(insight)
 
+        # Save message to session if session_id provided
+        if session_id:
+            try:
+                from ..domain.entities import ChatMessage
+                user_message = ChatMessage(
+                    role="user",
+                    content=query,
+                    timestamp=datetime.utcnow()
+                )
+                ai_message = ChatMessage(
+                    role="assistant",
+                    content=ai_response,
+                    timestamp=datetime.utcnow()
+                )
+                await self.chat_session_repo.add_message(session_id, user_message)
+                await self.chat_session_repo.add_message(session_id, ai_message)
+            except Exception:
+                # If session saving fails, continue without error
+                pass
+
         return AIInsightResponse(response=ai_response, suggestions=suggestions)
 
-    async def _generate_ai_response(self, query: str, forecast_data: List[ForecastData], metrics: Metrics, crop_type: str, region: str, season: str) -> tuple[str, List[str]]:
+    async def _generate_ai_response(self, query: str, forecast_data: List[ForecastData], metrics: Metrics, crop_type: str, region: str, season: str, conversation_history: List = None) -> tuple[str, List[str]]:
         from ...infrastructure.config.settings import settings
 
         if not settings.gemini_api_key:
@@ -138,24 +170,35 @@ class GenerateAIInsightUseCase(IGenerateAIInsightUseCase):
             genai.configure(api_key=settings.gemini_api_key)
             model = genai.GenerativeModel('gemini-1.5-flash')
 
-            # Prepare context data
-            context = self._prepare_context_data(forecast_data, metrics, crop_type, region, season)
+            # Get comprehensive data from database
+            context = await self._build_comprehensive_context(crop_type, region, season)
 
-            prompt = f"""
-You are an AI supply chain assistant for agricultural demand forecasting. You have access to the following data:
+            # Build conversation history context
+            history_context = ""
+            if conversation_history:
+                history_lines = []
+                for msg in conversation_history[-6:]:  # Last 6 messages for context
+                    role = "User" if msg.role == "user" else "Assistant"
+                    history_lines.append(f"{role}: {msg.content}")
+                history_context = f"\n\nConversation History:\n" + "\n".join(history_lines) + "\n"
 
-{context}
+            prompt = f"""You are an intelligent supply chain assistant for agricultural demand forecasting. You have access to comprehensive data about the supply chain operations.
 
-User query: {query}
+{context}{history_context}
 
-Please provide a helpful, analytical response based on the available data. Focus on:
-- Demand forecasting insights
-- Inventory optimization recommendations
-- Risk identification and mitigation
-- Supply chain efficiency improvements
+Current User query: {query}
 
-Keep your response concise but informative, and provide actionable insights.
-"""
+As a supply chain expert, provide helpful, analytical responses based on the available data. Focus on:
+- Demand forecasting and trends analysis
+- Inventory optimization and stock management
+- Route optimization and logistics
+- Risk identification and mitigation strategies
+- Performance metrics interpretation
+- Data-driven recommendations
+
+Be conversational but professional. Provide specific, actionable insights when possible. If you don't have enough data to answer definitively, acknowledge the limitations and suggest what additional information would help.
+
+Keep responses concise but informative."""
 
             response = model.generate_content(prompt)
             ai_response = response.text.strip()
@@ -169,28 +212,50 @@ Keep your response concise but informative, and provide actionable insights.
             # Fallback to mock response on error
             return self._generate_mock_response(query), self._generate_suggestions(query)
 
-    def _prepare_context_data(self, forecast_data: List[ForecastData], metrics: Metrics, crop_type: str, region: str, season: str) -> str:
-        context = f"""
-Crop Type: {crop_type}
+    async def _build_comprehensive_context(self, crop_type: str, region: str, season: str) -> str:
+        """Build comprehensive context from all available data"""
+        context_parts = []
+
+        # Current metrics
+        metrics = await self.metrics_repo.get_latest_metrics(crop_type, region, season)
+        if metrics:
+            context_parts.append(f"""
+Current Performance Metrics:
+- Mean Absolute Error (MAE): {metrics.mae:.2f}
+- Root Mean Square Error (RMSE): {metrics.rmse:.2f}
+- Demand Trend: {metrics.demand_trend:.2f}%
+- Volatility Score: {metrics.volatility_score:.3f}""")
+
+        # Forecast data
+        forecast_data = await self.forecast_repo.get_forecast_data(crop_type, region, season)
+        if forecast_data:
+            context_parts.append(f"""
+Recent Forecast Data ({crop_type}, {region}, {season}):
+{chr(10).join([f"- {item.month}: Predicted={item.predicted:.1f} tons" + (f", Actual={item.actual:.1f} tons" if item.actual else "") for item in forecast_data[:6]])}""")
+
+        # AI insights history
+        recent_insights = await self.ai_insights_repo.get_recent_insights(crop_type, region, season, limit=5)
+        if recent_insights:
+            context_parts.append(f"""
+Recent AI Insights:
+{chr(10).join([f"- {insight.user_query[:50]}...: {insight.ai_response[:100]}..." for insight in recent_insights])}""")
+
+        # Combine all context
+        full_context = f"""
+Supply Chain Context:
+Crop: {crop_type}
 Region: {region}
 Season: {season}
 
-Current Metrics:
-- MAE (Mean Absolute Error): {metrics.mae:.2f}
-- RMSE (Root Mean Square Error): {metrics.rmse:.2f}
-- Demand Trend: {metrics.demand_trend:.2f}%
-- Volatility Score: {metrics.volatility_score:.3f}
+{"".join(context_parts)}
 
-Forecast Data:
-"""
+General Supply Chain Knowledge:
+- Rice is the primary crop with seasonal demand patterns
+- Key regions include Java Barat, Yogyakarta, and surrounding areas
+- Supply chain challenges include weather dependency, transportation logistics, and inventory management
+- Performance metrics help track forecasting accuracy and operational efficiency"""
 
-        if forecast_data:
-            for item in forecast_data[:5]:  # Show first 5 months
-                context += f"- {item.month}: Actual={item.actual or 'N/A'}, Predicted={item.predicted:.1f}\n"
-        else:
-            context += "No forecast data available\n"
-
-        return context
+        return full_context
 
     def _generate_mock_response(self, query: str) -> str:
         if query.lower().includes("high demand") or query.lower().includes("kecamatan"):
@@ -202,17 +267,55 @@ Forecast Data:
 
     def _generate_suggestions(self, query: str) -> List[str]:
         base_suggestions = [
-            "Why is Kecamatan X showing high demand next month?",
-            "Recommend redistribution from Warehouse B",
-            "Explain the dead-stock alert for Warehouse B",
-            "What's driving demand in Yogyakarta region?"
+            "What's the current demand trend?",
+            "Show me inventory optimization suggestions",
+            "Analyze route efficiency",
+            "Check forecasting accuracy"
         ]
 
-        if "demand" in query.lower():
-            return ["Show me demand trends for next quarter", "Which regions need more inventory?", "Compare demand vs actual sales"]
-        elif "warehouse" in query.lower() or "inventory" in query.lower():
-            return ["Optimize inventory levels across warehouses", "Identify dead-stock locations", "Plan redistribution routes"]
-        elif "route" in query.lower() or "distribution" in query.lower():
-            return ["Calculate optimal delivery routes", "Estimate transportation costs", "Plan emergency redistribution"]
+        query_lower = query.lower()
+
+        if any(word in query_lower for word in ["demand", "forecast", "trend"]):
+            return ["Compare demand vs actual sales", "Show seasonal demand patterns", "Predict next month demand", "Identify demand drivers"]
+        elif any(word in query_lower for word in ["inventory", "stock", "warehouse"]):
+            return ["Optimize inventory levels", "Find dead-stock locations", "Plan redistribution", "Check stock turnover"]
+        elif any(word in query_lower for word in ["route", "distribution", "logistics"]):
+            return ["Calculate optimal routes", "Estimate transportation costs", "Find delivery bottlenecks", "Optimize delivery schedules"]
+        elif any(word in query_lower for word in ["performance", "metrics", "accuracy"]):
+            return ["Analyze forecasting accuracy", "Check model performance", "Identify improvement areas", "Compare metrics over time"]
         else:
             return base_suggestions
+
+
+class ChatSessionUseCase(IChatSessionUseCase):
+    def __init__(self, chat_session_repo: IChatSessionRepository):
+        self.chat_session_repo = chat_session_repo
+
+    async def create_session(self, crop_type: str, region: str, season: str) -> ChatSession:
+        from ..domain.entities import ChatSession
+        import uuid
+        from datetime import datetime
+
+        session = ChatSession(
+            session_id=str(uuid.uuid4()),
+            crop_type=crop_type,
+            region=region,
+            season=season,
+            messages=[],
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+
+        await self.chat_session_repo.save_session(session)
+        return session
+
+    async def chat(self, session_id: str, message: str) -> tuple[str, List[str]]:
+        # This method is handled by GenerateAIInsightUseCase
+        # This is just an interface implementation
+        raise NotImplementedError("Use GenerateAIInsightUseCase for chat functionality")
+
+    async def get_conversation_history(self, session_id: str, limit: int = 50) -> List[ChatMessage]:
+        session = await self.chat_session_repo.get_session(session_id)
+        if not session:
+            return []
+        return session.messages[-limit:] if session.messages else []

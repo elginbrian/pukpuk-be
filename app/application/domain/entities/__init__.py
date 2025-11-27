@@ -2,6 +2,7 @@ from beanie import Document
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
+import uuid
 
 class ForecastData(Document):
     month: str
@@ -25,6 +26,27 @@ class Metrics(Document):
 
     class Settings:
         name = "metrics"
+
+class ChatSession(Document):
+    session_id: str
+    created_at: datetime
+    last_activity: datetime
+    crop_type: str = "rice"
+    region: str = "jawa-barat"
+    season: str = "wet-season"
+
+    class Settings:
+        name = "chat_sessions"
+
+class ChatMessage(Document):
+    session_id: str
+    role: str  # "user" or "assistant"
+    content: str
+    timestamp: datetime
+    suggestions: Optional[List[str]] = None
+
+    class Settings:
+        name = "chat_messages"
 
 class AIInsight(Document):
     user_query: str
