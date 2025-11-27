@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from .infrastructure.config.settings import Settings
+from .application.handler.routes.forecasting import router as forecasting_router
 
 # Initialize settings
 settings = Settings()
@@ -9,6 +10,9 @@ app = FastAPI(
     version="1.0.0",
     debug=settings.debug
 )
+
+# Include routers
+app.include_router(forecasting_router)
 
 @app.get("/")
 async def root():
