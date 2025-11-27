@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from .infrastructure.config.settings import Settings
 from .application.handler.routes.forecasting import router as forecasting_router
 
@@ -9,6 +10,14 @@ app = FastAPI(
     title=settings.app_name,
     version="1.0.0",
     debug=settings.debug
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "https://pukpuk-id.vercel.app", "http://localhost:8000"],  
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Include routers
