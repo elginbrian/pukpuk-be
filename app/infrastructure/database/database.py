@@ -1,7 +1,7 @@
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from beanie import init_beanie
 from ...infrastructure.config.settings import settings
-from ...application.domain.entities import ForecastData, Metrics, AIInsight
+from ...application.domain.entities import ForecastData, Metrics, AIInsight, ChatSession, ChatMessage
 import random
 import logging
 
@@ -18,7 +18,7 @@ async def init_database():
         database = client[settings.database_name]
         # Test connection
         await client.admin.command('ping')
-        await init_beanie(database, document_models=[ForecastData, Metrics, AIInsight])
+        await init_beanie(database, document_models=[ForecastData, Metrics, AIInsight, ChatSession, ChatMessage])
         db_available = True
         logger.info("Database connected successfully")
     except Exception as e:

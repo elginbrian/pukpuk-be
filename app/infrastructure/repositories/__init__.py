@@ -90,6 +90,28 @@ class ChatSessionRepository(IChatSessionRepository):
         self.database = database
 
     async def create_session(self, crop_type: str, region: str, season: str) -> ChatSession:
+        if self.database is None or not is_database_available():
+           
+            from datetime import datetime
+            # Create a mock object with the same interface
+            class MockChatSession:
+                def __init__(self, session_id, created_at, last_activity, crop_type, region, season):
+                    self.session_id = session_id
+                    self.created_at = created_at
+                    self.last_activity = last_activity
+                    self.crop_type = crop_type
+                    self.region = region
+                    self.season = season
+            
+            return MockChatSession(
+                session_id=str(uuid.uuid4()),
+                created_at=datetime.utcnow(),
+                last_activity=datetime.utcnow(),
+                crop_type=crop_type,
+                region=region,
+                season=season
+            )
+        
         session = ChatSession(
             session_id=str(uuid.uuid4()),
             created_at=datetime.utcnow(),
@@ -99,9 +121,7 @@ class ChatSessionRepository(IChatSessionRepository):
             season=season
         )
         
-        if self.database is not None and is_database_available():
-            await session.insert()
-        
+        await session.insert()
         return session
 
     async def get_session(self, session_id: str) -> Optional[ChatSession]:

@@ -117,7 +117,7 @@ class GenerateAIInsightUseCase(IGenerateAIInsightUseCase):
             try:
                 session = await self.chat_session_repo.get_session(session_id)
                 if session:
-                    conversation_history = session.messages[-10:]  # Last 10 messages for context
+                    conversation_history = await self.chat_session_repo.get_conversation_history(session_id, limit=10)
             except Exception:
                 # If session loading fails, continue without history
                 pass
@@ -142,17 +142,19 @@ class GenerateAIInsightUseCase(IGenerateAIInsightUseCase):
             try:
                 from ..domain.entities import ChatMessage
                 user_message = ChatMessage(
+                    session_id=session_id,
                     role="user",
                     content=query,
                     timestamp=datetime.utcnow()
                 )
                 ai_message = ChatMessage(
+                    session_id=session_id,
                     role="assistant",
                     content=ai_response,
                     timestamp=datetime.utcnow()
                 )
-                await self.chat_session_repo.add_message(session_id, user_message)
-                await self.chat_session_repo.add_message(session_id, ai_message)
+                await self.chat_session_repo.save_message(user_message)
+                await self.chat_session_repo.save_message(ai_message)
             except Exception:
                 # If session saving fails, continue without error
                 pass
@@ -292,22 +294,7 @@ class ChatSessionUseCase(IChatSessionUseCase):
         self.chat_session_repo = chat_session_repo
 
     async def create_session(self, crop_type: str, region: str, season: str) -> ChatSession:
-        from ..domain.entities import ChatSession
-        import uuid
-        from datetime import datetime
-
-        session = ChatSession(
-            session_id=str(uuid.uuid4()),
-            crop_type=crop_type,
-            region=region,
-            season=season,
-            messages=[],
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
-        )
-
-        await self.chat_session_repo.save_session(session)
-        return session
+        return await self.chat_session_repo.create_session(crop_type, region, season)
 
     async def chat(self, session_id: str, message: str) -> tuple[str, List[str]]:
         # This method is handled by GenerateAIInsightUseCase
