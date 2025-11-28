@@ -12,6 +12,7 @@ router = APIRouter(prefix="/route-optimization", tags=["route-optimization"])
 class RouteDirectionsRequest(BaseModel):
     origin_coords: List[float]  # [lat, lng]
     dest_coords: List[float]   # [lat, lng]
+    route_type: str = "fastest"  # fastest, cheapest, greenest
 
 # Dependency injection
 def get_optimize_route_use_case() -> OptimizeRouteUseCase:
@@ -70,16 +71,82 @@ async def get_vehicles(
 async def get_route_directions(request: RouteDirectionsRequest):
     """
     Get actual road route directions between two coordinates using OSRM.
+    Route geometry varies based on route_type: fastest, cheapest, greenest.
     Returns GeoJSON with route geometry.
     """
     try:
-    
         start_lng, start_lat = request.origin_coords[1], request.origin_coords[0]
         end_lng, end_lat = request.dest_coords[1], request.dest_coords[0]
 
-        url = f"https://router.project-osrm.org/route/v1/driving/{start_lng},{start_lat};{end_lng},{end_lat}?overview=full&geometries=geojson"
+        route_config = None
+        try:
+            from app.infrastructure.database.database import get_database_sync
+            db = get_database_sync()
+            if db:
+                from app.application.domain.entities.route_optimization import RouteConfiguration
 
-        print(f"Calling OSRM: {url}")  # Debug logging
+                locations = await get_locations_use_case()().execute()
+
+                def find_closest_location(target_coords: List[float]) -> str:
+                    """Find the location code closest to target coordinates."""
+                    closest_loc = None
+                    min_distance = float('inf')
+
+                    for loc in locations:
+                        # Calculate simple distance (could be improved with haversine)
+                        distance = ((loc.coordinates[0] - target_coords[0]) ** 2 +
+                                  (loc.coordinates[1] - target_coords[1]) ** 2) ** 0.5
+                        if distance < min_distance:
+                            min_distance = distance
+                            closest_loc = loc.code
+
+                    return closest_loc or "plant-surabaya"  # fallback
+
+                origin_code = find_closest_location(request.origin_coords)
+                dest_code = find_closest_location(request.dest_coords)
+
+                print(f"Looking for route config: {origin_code} -> {dest_code}")
+
+                route_config = await RouteConfiguration.find(
+                    RouteConfiguration.origin == origin_code,
+                    RouteConfiguration.destination == dest_code,
+                    RouteConfiguration.vehicle_type == "truck-medium",  # Default vehicle type
+                    RouteConfiguration.load_capacity == 8.0  # Default load capacity
+                ).first_or_none()
+
+                if route_config:
+                    print(f"Found route config: {route_config.origin} -> {route_config.destination}")
+                else:
+                    print(f"No route config found for {origin_code} -> {dest_code}")
+
+        except Exception as e:
+            print(f"Database lookup failed: {e}")
+
+        # Build waypoints based on route type
+        waypoints = []
+
+        if route_config and request.route_type in ["fastest", "cheapest", "greenest"]:
+            # Use database waypoints
+            path_codes = getattr(route_config, f"{request.route_type}_path", [])
+            locations_use_case = get_locations_use_case()
+            locations = await locations_use_case.execute()
+
+            for code in path_codes:
+                loc = next((l for l in locations if l.code == code), None)
+                if loc:
+                    waypoints.append(f"{loc.coordinates[1]},{loc.coordinates[0]}")  # lng,lat
+        else:
+            # Fallback to direct route
+            waypoints = [f"{start_lng},{start_lat}", f"{end_lng},{end_lat}"]
+
+        # Ensure we have at least start and end
+        if len(waypoints) < 2:
+            waypoints = [f"{start_lng},{start_lat}", f"{end_lng},{end_lat}"]
+
+        waypoints_str = ";".join(waypoints)
+        url = f"https://router.project-osrm.org/route/v1/driving/{waypoints_str}?overview=full&geometries=geojson&alternatives=false"
+
+        print(f"Calling OSRM for {request.route_type} with waypoints: {url}")  # Debug logging
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(url)
@@ -91,12 +158,14 @@ async def get_route_directions(request: RouteDirectionsRequest):
 
                 if data.get('routes') and len(data['routes']) > 0:
                     route = data['routes'][0]
+                  
                     return {
                         "type": "Feature",
                         "geometry": route['geometry'],
                         "properties": {
                             "distance": route.get('distance'),
-                            "duration": route.get('duration')
+                            "duration": route.get('duration'),
+                            "route_type": request.route_type
                         }
                     }
                 else:
@@ -106,7 +175,8 @@ async def get_route_directions(request: RouteDirectionsRequest):
                 raise httpx.HTTPStatusError("API call failed", request=None, response=response)
 
     except Exception as e:
-        print(f"OSRM failed: {str(e)}") 
+        print(f"OSRM failed for {request.route_type}: {str(e)}")
+       
         return {
             "type": "Feature",
             "geometry": {
@@ -117,6 +187,7 @@ async def get_route_directions(request: RouteDirectionsRequest):
                 ]
             },
             "properties": {
-                "fallback": True
+                "fallback": True,
+                "route_type": request.route_type
             }
         }

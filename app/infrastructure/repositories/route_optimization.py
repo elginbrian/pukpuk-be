@@ -117,22 +117,34 @@ class RouteOptimizationRepository(IRouteOptimizationRepository):
         # Fuel price per liter (IDR)
         fuel_price = 15000
 
-        # Toll cost per km (approximate)
-        toll_cost_per_km = 500
+        # Toll cost per km (approximate) - varies by route type
+        base_toll_cost_per_km = 500
 
-        # For direct routes, all options use the same path but different optimization criteria
-        # Fastest: direct route at maximum speed
-        # Cheapest: slightly longer route but cheaper (simulated by adding 10% distance)
-        # Greenest: slightly longer route but more efficient (simulated by adding 5% distance)
+        # For different route optimizations:
+        # Fastest: direct route, highest speed, higher tolls (expressways), normal fuel efficiency
+        # Cheapest: longer route but uses cheaper roads with lower tolls, optimized fuel efficiency
+        # Greenest: moderate distance, lower speed for better fuel efficiency, balanced tolls
 
         fastest_dist = direct_distance
-        cheapest_dist = direct_distance * 1.1  # 10% longer but cheaper
-        greenest_dist = direct_distance * 1.05  # 5% longer but greener
+        cheapest_dist = direct_distance * 1.1  # 10% longer
+        greenest_dist = direct_distance * 1.05  # 5% longer
 
-        # Create route options
-        fastest = self._create_route_option("fastest", fastest_dist, [request.origin, request.destination], location_dict, adjusted_speed, adjusted_fuel_consumption, fuel_price, toll_cost_per_km, vehicle.co2_factor, load_factor)
-        cheapest = self._create_route_option("cheapest", cheapest_dist, [request.origin, request.destination], location_dict, adjusted_speed * 0.8, adjusted_fuel_consumption, fuel_price, toll_cost_per_km, vehicle.co2_factor, load_factor)
-        greenest = self._create_route_option("greenest", greenest_dist, [request.origin, request.destination], location_dict, adjusted_speed * 0.9, adjusted_fuel_consumption, fuel_price, toll_cost_per_km, vehicle.co2_factor, load_factor)
+        # Create route options with different cost factors
+        fastest = self._create_route_option(
+            "fastest", fastest_dist, [request.origin, request.destination], location_dict,
+            adjusted_speed, adjusted_fuel_consumption, fuel_price, base_toll_cost_per_km * 1.2,  # Higher tolls for expressways
+            vehicle.co2_factor, load_factor
+        )
+        cheapest = self._create_route_option(
+            "cheapest", cheapest_dist, [request.origin, request.destination], location_dict,
+            adjusted_speed * 0.9, adjusted_fuel_consumption * 0.95, fuel_price, base_toll_cost_per_km * 0.7,  # Lower tolls for regular roads, better fuel efficiency
+            vehicle.co2_factor, load_factor
+        )
+        greenest = self._create_route_option(
+            "greenest", greenest_dist, [request.origin, request.destination], location_dict,
+            adjusted_speed * 0.8, adjusted_fuel_consumption * 0.9, fuel_price, base_toll_cost_per_km * 0.9,  # Moderate tolls, best fuel efficiency
+            vehicle.co2_factor * 0.9, load_factor  # Lower CO2 factor for greenest
+        )
 
         return RouteOptimizationResponse(fastest=fastest, cheapest=cheapest, greenest=greenest)
 
