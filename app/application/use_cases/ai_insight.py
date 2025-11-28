@@ -251,7 +251,7 @@ User's original query: {query}
 
 AI's response: {ai_response[:500]}...  # Truncated for brevity
 
-Generate 4-6 follow-up questions that would be natural next steps in this supply chain analysis conversation. Include questions that:
+Generate 3 SHORT follow-up questions (under 6 words each) that would be natural next steps in this supply chain analysis conversation. Include questions that:
 - Request forecasts for different crops, regions, or seasons
 - Compare data across different parameters
 - Ask for deeper analysis of current topics
@@ -259,7 +259,7 @@ Generate 4-6 follow-up questions that would be natural next steps in this supply
 - Ask about performance metrics
 - Inquire about logistics and routing
 
-Return only the questions as a numbered list, one per line."""
+Make questions concise and direct. Return only the questions as a numbered list, one per line."""
 
             suggestions_response = model.generate_content(suggestions_prompt)
             suggestions_text = suggestions_response.text.strip()
@@ -272,15 +272,15 @@ Return only the questions as a numbered list, one per line."""
                 if line and (line[0].isdigit() or line.startswith('-')):
                     # Remove leading numbers, dashes, and extra spaces
                     cleaned = line.lstrip('123456789-. ').strip()
-                    if cleaned and len(cleaned) > 10:  # Only meaningful questions
+                    if cleaned and len(cleaned) > 5 and len(cleaned) < 100:  # Reasonable length for questions
                         suggestions.append(cleaned)
 
             # Ensure we have at least 3 suggestions, fallback to basic ones if needed
             if len(suggestions) < 3:
                 suggestions.extend([
-                    "What's the current demand trend?",
+                    "What's the demand trend?",
                     "Analyze route efficiency",
-                    "Check forecasting accuracy"
+                    "Check forecast accuracy"
                 ])
 
             return suggestions[:6]  # Return up to 6 suggestions
@@ -288,10 +288,10 @@ Return only the questions as a numbered list, one per line."""
         except Exception as e:
             # Fallback to basic suggestions if AI generation fails
             return [
-                "What's the current demand trend?",
-                "Show me inventory optimization suggestions",
-                "Analyze route efficiency",
-                "Check forecasting accuracy"
+                "What's the demand trend?",
+                "Show inventory suggestions",
+                "Analyze routes",
+                "Check accuracy"
             ]
 
     async def _build_comprehensive_context(self, crop_type: str, region: str, season: str) -> str:
