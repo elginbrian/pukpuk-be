@@ -32,7 +32,7 @@ class ScenarioRequest(BaseModel):
 class AIInsightRequest(BaseModel):
     query: str
     crop_type: str = "rice"
-    region: str = "jawa-barat"
+    region: str = "malang regency"
     season: str = "wet-season"
 
 class AIInsightResponse(BaseModel):
@@ -55,7 +55,7 @@ def get_generate_ai_insight_use_case() -> GenerateAIInsightUseCase:
 @router.get("/metrics", response_model=Metrics)
 async def get_metrics(
     crop_type: str = "rice",
-    region: str = "jawa-barat",
+    region: str = "malang regency",
     season: str = "wet-season",
     use_case: GetMetricsUseCase = Depends(get_metrics_use_case)
 ):
@@ -91,7 +91,7 @@ async def simulate_scenario(
 @router.get("/export")
 async def export_forecast_results(
     crop_type: str = "rice",
-    region: str = "jawa-barat", 
+    region: str = "malang regency", 
     season: str = "wet-season",
     format: str = "csv",
     forecast_use_case: GetForecastUseCase = Depends(get_forecast_use_case),

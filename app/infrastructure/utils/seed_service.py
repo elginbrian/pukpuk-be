@@ -30,8 +30,8 @@ class SeedService:
 
     async def seed_forecast_data(self) -> None:
         """Seed forecast data for different crops, regions, and seasons."""
-        crops = ["rice", "corn", "wheat", "soybean"]
-        regions = ["jawa-barat", "jawa-timur", "jawa-tengah", "sumatera-utara"]
+        crops = ["rice", "corn", "sugarcane", "soybean"]
+        regions = ["malang regency", "blitar regency", "kediri regency", "madiun regency", "jember regency"]
         seasons = ["wet-season", "dry-season"]
         months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep"]
 
@@ -40,17 +40,20 @@ class SeedService:
         for crop in crops:
             for region in regions:
                 for season in seasons:
-                    # Generate forecast data
+                    # Generate forecast data with regency-specific patterns
                     forecast_data = []
-                    base_demand = 3000 + random.randint(-1000, 2000)
-
+                    
+                    # Get regency-specific base patterns
+                    base_demands, multiplier = self._get_seed_regency_patterns(region, season)
+                    
                     for i, month in enumerate(months):
-                        actual = base_demand + random.randint(-500, 500) if i < 6 else None
-                        predicted = base_demand + random.randint(-300, 600)
+                        base = base_demands[i] * multiplier
+                        actual = base + random.randint(-200, 200) if i < 6 else None
+                        predicted = base + random.randint(-150, 250)
                         forecast_data.append(ForecastData(
                             month=month,
                             actual=actual,
-                            predicted=predicted,
+                            predicted=max(0, predicted),
                             crop_type=crop,
                             region=region,
                             season=season
@@ -58,12 +61,30 @@ class SeedService:
 
                     await self.forecast_repo.save_forecast_data(forecast_data)
 
-                    # Generate metrics
+                    # Generate metrics with crop-specific characteristics
+                    crop_metrics = {
+                        "rice": {"mae": 120, "rmse": 200, "volatility": 0.5},
+                        "corn": {"mae": 150, "rmse": 250, "volatility": 0.65},
+                        "sugarcane": {"mae": 180, "rmse": 300, "volatility": 0.55},
+                        "soybean": {"mae": 140, "rmse": 230, "volatility": 0.70}
+                    }
+                    
+                    crop_data = crop_metrics.get(crop, crop_metrics["rice"])
+                    base_mae = crop_data["mae"]
+                    base_rmse = crop_data["rmse"]
+                    base_volatility = crop_data["volatility"]
+                    
+                    # Regional adjustment for regencies
+                    if "regency" in region.lower():
+                        base_mae *= 0.9
+                        base_rmse *= 0.9
+                        base_volatility *= 0.9
+                    
                     metrics = Metrics(
-                        mae=120 + random.uniform(-30, 50),
-                        rmse=200 + random.uniform(-40, 60),
+                        mae=base_mae + random.uniform(-30, 50),
+                        rmse=base_rmse + random.uniform(-40, 60),
                         demand_trend=10 + random.uniform(-10, 20),
-                        volatility_score=0.5 + random.uniform(-0.2, 0.3),
+                        volatility_score=base_volatility + random.uniform(-0.2, 0.3),
                         crop_type=crop,
                         region=region,
                         season=season
@@ -72,6 +93,56 @@ class SeedService:
                     await self.metrics_repo.save_metrics(metrics)
 
         print("Forecast data seeded successfully!")
+
+    def _get_seed_regency_patterns(self, region: str, season: str) -> tuple[list[int], float]:
+        """Get region-specific demand patterns and multipliers for East Java regencies (for seeding)."""
+        region_lower = region.lower()
+        
+        # Base patterns for wet and dry seasons
+        wet_base = [4500, 4800, 5200, 4000, 3800, 3600, 3500, 3400, 4200]
+        dry_base = [3800, 3600, 3400, 3200, 3100, 3000, 2900, 2800, 3200]
+        
+        # Regency-specific adjustments (simplified for seeding)
+        regency_patterns = {
+            "malang regency": {
+                "multiplier": 1.15,
+                "wet_adjust": [500, 600, 700, 300, 200, 100, 0, -100, 400],
+                "dry_adjust": [200, 100, 0, -100, -200, -300, -400, -500, 0]
+            },
+            "blitar regency": {
+                "multiplier": 1.25,
+                "wet_adjust": [600, 700, 800, 400, 300, 200, 100, 0, 500],
+                "dry_adjust": [300, 200, 100, 0, -100, -200, -300, -400, 100]
+            },
+            "kediri regency": {
+                "multiplier": 1.20,
+                "wet_adjust": [550, 650, 750, 350, 250, 150, 50, -50, 450],
+                "dry_adjust": [250, 150, 50, -50, -150, -250, -350, -450, 50]
+            },
+            "madiun regency": {
+                "multiplier": 1.10,
+                "wet_adjust": [450, 550, 650, 250, 150, 50, -50, -150, 350],
+                "dry_adjust": [150, 50, -50, -150, -250, -350, -450, -550, -50]
+            },
+            "jember regency": {
+                "multiplier": 1.05,
+                "wet_adjust": [400, 500, 600, 200, 100, 0, -100, -200, 300],
+                "dry_adjust": [100, 0, -100, -200, -300, -400, -500, -600, -100]
+            }
+        }
+        
+        # Default pattern for unknown regencies
+        if region_lower not in regency_patterns:
+            base_demands = wet_base if season == "wet-season" else dry_base
+            multiplier = 1.1
+        else:
+            pattern = regency_patterns[region_lower]
+            base_pattern = wet_base if season == "wet-season" else dry_base
+            adjustments = pattern["wet_adjust"] if season == "wet-season" else pattern["dry_adjust"]
+            base_demands = [b + a for b, a in zip(base_pattern, adjustments)]
+            multiplier = pattern["multiplier"]
+        
+        return base_demands, multiplier
 
     async def seed_locations(self) -> None:
         """Seed the database with location data focused on East Java (Jawa Timur)."""
