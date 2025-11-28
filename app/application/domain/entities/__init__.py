@@ -69,3 +69,24 @@ class AIInsightRequest(BaseModel):
 class AIInsightResponse(BaseModel):
     response: str
     suggestions: List[str]
+
+# Route Optimization Entities
+class RouteOption(BaseModel):
+    id: str  # "fastest", "cheapest", "greenest"
+    distance: float  # in km
+    duration: str  # e.g., "3h 45min"
+    fuel_cost: float  # in IDR
+    toll_cost: float  # in IDR
+    co2: float  # in kg
+    path: str  # route description
+
+class RouteOptimizationRequest(BaseModel):
+    origin: str
+    destination: str
+    vehicle_type: str
+    load_capacity: float
+
+class RouteOptimizationResponse(BaseModel):
+    fastest: RouteOption
+    cheapest: RouteOption
+    greenest: RouteOption

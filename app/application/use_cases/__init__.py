@@ -1,8 +1,8 @@
 import random
 from typing import List, Optional
-from ..domain.entities import ForecastData, Metrics, AIInsight, AIInsightResponse, ChatSession, ChatMessage
-from ..domain.use_cases import IGetForecastUseCase, IGetMetricsUseCase, ISimulateScenarioUseCase, IGenerateAIInsightUseCase, IChatSessionUseCase
-from ..domain.interfaces import IForecastRepository, IMetricsRepository, IAIInsightsRepository, IChatSessionRepository
+from ..domain.entities import ForecastData, Metrics, AIInsight, AIInsightResponse, ChatSession, ChatMessage, RouteOptimizationRequest, RouteOptimizationResponse, RouteOption
+from ..domain.use_cases import IGetForecastUseCase, IGetMetricsUseCase, ISimulateScenarioUseCase, IGenerateAIInsightUseCase, IChatSessionUseCase, IOptimizeRouteUseCase
+from ..domain.interfaces import IForecastRepository, IMetricsRepository, IAIInsightsRepository, IChatSessionRepository, IRouteOptimizationRepository
 from ...infrastructure.utils.export_service import ExportService
 import google.generativeai as genai
 from datetime import datetime
@@ -297,3 +297,11 @@ class ChatSessionUseCase(IChatSessionUseCase):
         if not session:
             return []
         return session.messages[-limit:] if session.messages else []
+
+
+class OptimizeRouteUseCase(IOptimizeRouteUseCase):
+    def __init__(self, route_repo: IRouteOptimizationRepository):
+        self.route_repo = route_repo
+
+    async def execute(self, request: RouteOptimizationRequest) -> RouteOptimizationResponse:
+        return await self.route_repo.optimize_route(request)

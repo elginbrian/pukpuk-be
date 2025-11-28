@@ -1,10 +1,11 @@
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import List, Optional
-from ...application.domain.entities import ForecastData, Metrics, AIInsight, ChatSession, ChatMessage
-from ...application.domain.interfaces import IForecastRepository, IMetricsRepository, IAIInsightsRepository, IChatSessionRepository
+from ...application.domain.entities import ForecastData, Metrics, AIInsight, ChatSession, ChatMessage, RouteOptimizationRequest, RouteOptimizationResponse, RouteOption
+from ...application.domain.interfaces import IForecastRepository, IMetricsRepository, IAIInsightsRepository, IChatSessionRepository, IRouteOptimizationRepository
 from ..database.database import is_database_available
 import uuid
 from datetime import datetime
+import random
 
 class ForecastRepository(IForecastRepository):
     def __init__(self, database: Optional[AsyncIOMotorDatabase]):
@@ -152,3 +153,78 @@ class ChatSessionRepository(IChatSessionRepository):
         ).sort(ChatMessage.timestamp).limit(limit).to_list()
         
         return messages
+
+
+class RouteOptimizationRepository(IRouteOptimizationRepository):
+    def __init__(self, database: Optional[AsyncIOMotorDatabase]):
+        self.database = database
+
+    async def optimize_route(self, request: RouteOptimizationRequest) -> RouteOptimizationResponse:
+        # Mock route optimization logic
+        # In a real implementation, this would integrate with a routing service like Google Maps API, OSRM, etc.
+        
+        # Base distances and times (mock data)
+        base_distances = {
+            ("plant-a", "kios-garut"): {"fastest": 245, "cheapest": 280, "greenest": 260},
+            ("plant-a", "kios-bandung"): {"fastest": 180, "cheapest": 220, "greenest": 200},
+            ("plant-a", "kios-tasikmalaya"): {"fastest": 150, "cheapest": 190, "greenest": 170},
+            ("plant-a", "kios-sumedang"): {"fastest": 120, "cheapest": 160, "greenest": 140},
+        }
+
+        origin_dest = (request.origin, request.destination)
+        distances = base_distances.get(origin_dest, {"fastest": 200, "cheapest": 250, "greenest": 230})
+
+        # Adjust based on vehicle type and load capacity
+        vehicle_multiplier = {
+            "truck-small": 1.0,
+            "truck-medium": 1.1,
+            "truck-large": 1.2,
+        }.get(request.vehicle_type, 1.0)
+
+        load_factor = min(1.0 + (request.load_capacity - 5) * 0.05, 1.3)  # Max 30% increase
+
+        # Generate route options
+        fastest = self._generate_route_option("fastest", distances["fastest"] * vehicle_multiplier * load_factor, request.origin, request.destination)
+        cheapest = self._generate_route_option("cheapest", distances["cheapest"] * vehicle_multiplier * load_factor, request.origin, request.destination)
+        greenest = self._generate_route_option("greenest", distances["greenest"] * vehicle_multiplier * load_factor, request.origin, request.destination)
+
+        return RouteOptimizationResponse(
+            fastest=fastest,
+            cheapest=cheapest,
+            greenest=greenest
+        )
+
+    def _generate_route_option(self, option_type: str, distance: float, origin: str, destination: str) -> RouteOption:
+        # Mock route generation logic
+        if option_type == "fastest":
+            duration_hours = distance / 60  # 60 km/h average speed
+            fuel_cost = distance * 12000  # IDR per km
+            toll_cost = 45000
+            co2 = distance * 0.35  # kg CO2 per km
+            path = f"{origin.title()} → Warehouse B → Kios Bandung → {destination.title()}"
+        elif option_type == "cheapest":
+            duration_hours = distance / 45  # 45 km/h average speed
+            fuel_cost = distance * 10000  # IDR per km
+            toll_cost = 25000
+            co2 = distance * 0.4  # kg CO2 per km
+            path = f"{origin.title()} → Warehouse A → Kios Tasikmalaya → {destination.title()}"
+        else:  # greenest
+            duration_hours = distance / 50  # 50 km/h average speed
+            fuel_cost = distance * 11000  # IDR per km
+            toll_cost = 35000
+            co2 = distance * 0.3  # kg CO2 per km
+            path = f"{origin.title()} → Warehouse B → Kios Sumedang → {destination.title()}"
+
+        hours = int(duration_hours)
+        minutes = int((duration_hours - hours) * 60)
+        duration = f"{hours}h {minutes}min"
+
+        return RouteOption(
+            id=option_type,
+            distance=round(distance, 1),
+            duration=duration,
+            fuel_cost=int(fuel_cost),
+            toll_cost=int(toll_cost),
+            co2=round(co2, 1),
+            path=path
+        )
