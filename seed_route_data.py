@@ -248,18 +248,7 @@ async def seed_route_configurations():
 
 async def main():
     """Main seeding function."""
-    # Get MongoDB connection string from environment
-    mongodb_url = os.getenv("MONGODB_URL", "mongodb://localhost:27017/pukpuk")
-
     try:
-        # Connect to MongoDB
-        client = AsyncIOMotorClient(mongodb_url)
-        database = client.get_database("pukpuk")
-
-        # Initialize Beanie with the database
-        await init_beanie(database, document_models=[Location, RouteConfiguration, Vehicle])
-
-        print("Connected to MongoDB successfully!")
         print("Starting data seeding...")
 
         # Seed locations
@@ -279,8 +268,6 @@ async def main():
     except Exception as e:
         print(f"Error during seeding: {e}")
         sys.exit(1)
-    finally:
-        client.close()
 
 if __name__ == "__main__":
     asyncio.run(main())
