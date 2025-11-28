@@ -118,3 +118,16 @@ class RouteConfiguration(Document):
 
     class Settings:
         name = "route_configurations"
+
+class Vehicle(Document):
+    code: str  # e.g., "truck-small"
+    name: str  # e.g., "Small Truck (3-5 tons)"
+    min_capacity: float  # minimum load capacity in tons
+    max_capacity: float  # maximum load capacity in tons
+    fuel_consumption: float  # km/L
+    average_speed: float  # km/h
+    co2_factor: float  # kg/km
+    type: str  # "truck"
+
+    class Settings:
+        name = "vehicles"

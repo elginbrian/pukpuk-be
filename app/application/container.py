@@ -4,7 +4,7 @@ from dependency_injector import containers, providers
 from ..infrastructure.config.settings import Settings
 from ..infrastructure.database.database import get_database_sync
 from ..infrastructure.repositories import ForecastRepository, MetricsRepository, AIInsightsRepository, ChatSessionRepository, RouteOptimizationRepository
-from ..application.use_cases import GetForecastUseCase, GetMetricsUseCase, SimulateScenarioUseCase, GenerateAIInsightUseCase, ChatSessionUseCase, OptimizeRouteUseCase, GetLocationsUseCase
+from ..application.use_cases import GetForecastUseCase, GetMetricsUseCase, SimulateScenarioUseCase, GenerateAIInsightUseCase, ChatSessionUseCase, OptimizeRouteUseCase, GetLocationsUseCase, GetVehiclesUseCase, GetRouteConfigurationsUseCase
 
 
 class Container(containers.DeclarativeContainer):
@@ -36,6 +36,8 @@ class Container(containers.DeclarativeContainer):
     chat_session_use_case = providers.Singleton(ChatSessionUseCase, chat_session_repo=chat_session_repository)
     optimize_route_use_case = providers.Singleton(OptimizeRouteUseCase, route_repo=route_optimization_repository)
     get_locations_use_case = providers.Singleton(GetLocationsUseCase, route_repo=route_optimization_repository)
+    get_vehicles_use_case = providers.Singleton(GetVehiclesUseCase, route_repo=route_optimization_repository)
+    get_route_configurations_use_case = providers.Singleton(GetRouteConfigurationsUseCase, route_repo=route_optimization_repository)
 
 
 # Global container instance

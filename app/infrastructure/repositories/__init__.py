@@ -1,6 +1,6 @@
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import List, Optional
-from ...application.domain.entities import ForecastData, Metrics, AIInsight, ChatSession, ChatMessage, RouteOptimizationRequest, RouteOptimizationResponse, RouteOption, Location, RouteConfiguration
+from ...application.domain.entities import ForecastData, Metrics, AIInsight, ChatSession, ChatMessage, RouteOptimizationRequest, RouteOptimizationResponse, RouteOption, Location, RouteConfiguration, Vehicle
 from ...application.domain.interfaces import IForecastRepository, IMetricsRepository, IAIInsightsRepository, IChatSessionRepository, IRouteOptimizationRepository
 from ..database.database import is_database_available
 import uuid
@@ -369,3 +369,60 @@ class RouteOptimizationRepository(IRouteOptimizationRepository):
                 print(f"Database error getting locations: {e}")
                 return []
         return []
+
+    async def get_vehicles(self) -> List[Vehicle]:
+        """Get all vehicles from database, fallback to mock data if database unavailable."""
+        if self.database is not None and is_database_available():
+            try:
+                vehicles = await Vehicle.find().to_list()
+                return vehicles
+            except Exception as e:
+                print(f"Database error getting vehicles: {e}")
+                return await self._get_mock_vehicles()
+        return await self._get_mock_vehicles()
+
+    async def get_route_configurations(self) -> List[RouteConfiguration]:
+        """Get all route configurations from database, fallback to empty list if database unavailable."""
+        if self.database is not None and is_database_available():
+            try:
+                configs = await RouteConfiguration.find().to_list()
+                return configs
+            except Exception as e:
+                print(f"Database error getting route configurations: {e}")
+                return []
+        return []
+
+    async def _get_mock_vehicles(self) -> List[Vehicle]:
+        """Return mock vehicle data."""
+        return [
+            Vehicle(
+                code="truck-small",
+                name="Small Truck (3-5 tons)",
+                min_capacity=3.0,
+                max_capacity=5.0,
+                fuel_consumption=2.8,
+                average_speed=65.0,
+                co2_factor=0.35,
+                type="truck"
+            ),
+            Vehicle(
+                code="truck-medium",
+                name="Medium Truck (6-10 tons)",
+                min_capacity=6.0,
+                max_capacity=10.0,
+                fuel_consumption=2.5,
+                average_speed=60.0,
+                co2_factor=0.4,
+                type="truck"
+            ),
+            Vehicle(
+                code="truck-large",
+                name="Large Truck (11-15 tons)",
+                min_capacity=11.0,
+                max_capacity=15.0,
+                fuel_consumption=2.2,
+                average_speed=55.0,
+                co2_factor=0.45,
+                type="truck"
+            )
+        ]

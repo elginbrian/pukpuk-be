@@ -49,3 +49,13 @@ class IGetLocationsUseCase(ABC):
     @abstractmethod
     async def execute(self) -> List[Location]:
         pass
+
+class IGetVehiclesUseCase(ABC):
+    @abstractmethod
+    async def execute(self) -> List[Vehicle]:
+        pass
+
+class IGetRouteConfigurationsUseCase(ABC):
+    @abstractmethod
+    async def execute(self) -> List[RouteConfiguration]:
+        pass

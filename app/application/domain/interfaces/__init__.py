@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from ..entities import ForecastData, Metrics, AIInsight, ChatSession, ChatMessage, RouteOptimizationResponse, RouteOptimizationRequest, Location
+from ..entities import ForecastData, Metrics, AIInsight, ChatSession, ChatMessage, RouteOptimizationResponse, RouteOptimizationRequest, Location, Vehicle, RouteConfiguration
 
 class IForecastRepository(ABC):
     @abstractmethod
@@ -57,4 +57,12 @@ class IRouteOptimizationRepository(ABC):
 
     @abstractmethod
     async def get_locations(self) -> List[Location]:
+        pass
+
+    @abstractmethod
+    async def get_vehicles(self) -> List[Vehicle]:
+        pass
+
+    @abstractmethod
+    async def get_route_configurations(self) -> List[RouteConfiguration]:
         pass

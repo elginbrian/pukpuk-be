@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 # Add the app directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'app'))
 
-from app.application.domain.entities import Location, RouteConfiguration
+from app.application.domain.entities import Location, RouteConfiguration, Vehicle
 
 # Load environment variables
 load_dotenv()
@@ -101,6 +101,53 @@ async def seed_locations():
         location = Location(**location_data)
         await location.insert()
         print(f"Inserted location: {location.name}")
+
+async def seed_vehicles():
+    """Seed the database with vehicle data."""
+    vehicles_data = [
+        {
+            "code": "truck-small",
+            "name": "Small Truck (3-5 tons)",
+            "min_capacity": 3.0,
+            "max_capacity": 5.0,
+            "fuel_consumption": 2.8,
+            "average_speed": 65.0,
+            "co2_factor": 0.35,
+            "type": "truck"
+        },
+        {
+            "code": "truck-medium",
+            "name": "Medium Truck (6-10 tons)",
+            "min_capacity": 6.0,
+            "max_capacity": 10.0,
+            "fuel_consumption": 2.5,
+            "average_speed": 60.0,
+            "co2_factor": 0.4,
+            "type": "truck"
+        },
+        {
+            "code": "truck-large",
+            "name": "Large Truck (11-15 tons)",
+            "min_capacity": 11.0,
+            "max_capacity": 15.0,
+            "fuel_consumption": 2.2,
+            "average_speed": 55.0,
+            "co2_factor": 0.45,
+            "type": "truck"
+        }
+    ]
+
+    # Insert vehicles
+    for vehicle_data in vehicles_data:
+        # Check if vehicle already exists
+        existing = await Vehicle.find(Vehicle.code == vehicle_data["code"]).first_or_none()
+        if existing:
+            print(f"Vehicle {vehicle_data['code']} already exists, skipping...")
+            continue
+
+        vehicle = Vehicle(**vehicle_data)
+        await vehicle.insert()
+        print(f"Inserted vehicle: {vehicle.name}")
 
 async def seed_route_configurations():
     """Seed the database with route configuration data."""
@@ -210,7 +257,7 @@ async def main():
         database = client.get_database("pukpuk")
 
         # Initialize Beanie with the database
-        await init_beanie(database, document_models=[Location, RouteConfiguration])
+        await init_beanie(database, document_models=[Location, RouteConfiguration, Vehicle])
 
         print("Connected to MongoDB successfully!")
         print("Starting data seeding...")
@@ -218,6 +265,10 @@ async def main():
         # Seed locations
         print("\nSeeding locations...")
         await seed_locations()
+
+        # Seed vehicles
+        print("\nSeeding vehicles...")
+        await seed_vehicles()
 
         # Seed route configurations
         print("\nSeeding route configurations...")

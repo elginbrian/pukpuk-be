@@ -1,7 +1,7 @@
 import random
 from typing import List, Optional
-from ..domain.entities import ForecastData, Metrics, AIInsight, AIInsightResponse, ChatSession, ChatMessage, RouteOptimizationRequest, RouteOptimizationResponse, RouteOption, Location
-from ..domain.use_cases import IGetForecastUseCase, IGetMetricsUseCase, ISimulateScenarioUseCase, IGenerateAIInsightUseCase, IChatSessionUseCase, IOptimizeRouteUseCase, IGetLocationsUseCase
+from ..domain.entities import ForecastData, Metrics, AIInsight, AIInsightResponse, ChatSession, ChatMessage, RouteOptimizationRequest, RouteOptimizationResponse, RouteOption, Location, Vehicle, RouteConfiguration
+from ..domain.use_cases import IGetForecastUseCase, IGetMetricsUseCase, ISimulateScenarioUseCase, IGenerateAIInsightUseCase, IChatSessionUseCase, IOptimizeRouteUseCase, IGetLocationsUseCase, IGetVehiclesUseCase, IGetRouteConfigurationsUseCase
 from ..domain.interfaces import IForecastRepository, IMetricsRepository, IAIInsightsRepository, IChatSessionRepository, IRouteOptimizationRepository
 from ...infrastructure.utils.export_service import ExportService
 import google.generativeai as genai
@@ -313,3 +313,19 @@ class GetLocationsUseCase(IGetLocationsUseCase):
 
     async def execute(self) -> List[Location]:
         return await self.route_repo.get_locations()
+
+
+class GetVehiclesUseCase(IGetVehiclesUseCase):
+    def __init__(self, route_repo: IRouteOptimizationRepository):
+        self.route_repo = route_repo
+
+    async def execute(self) -> List[Vehicle]:
+        return await self.route_repo.get_vehicles()
+
+
+class GetRouteConfigurationsUseCase(IGetRouteConfigurationsUseCase):
+    def __init__(self, route_repo: IRouteOptimizationRepository):
+        self.route_repo = route_repo
+
+    async def execute(self) -> List[RouteConfiguration]:
+        return await self.route_repo.get_route_configurations()
