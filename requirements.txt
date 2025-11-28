@@ -6,3 +6,4 @@ motor
 pymongo
 beanie
 google-generativeai
+httpx

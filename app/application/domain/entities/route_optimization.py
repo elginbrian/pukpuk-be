@@ -11,7 +11,6 @@ class RouteOption(BaseModel):
     toll_cost: float  # in IDR
     co2: float  # in kg
     path: str  # route description
-    waypoints: List[List[float]]  # list of [lat, lng] coordinates
 
 class RouteOptimizationRequest(BaseModel):
     origin: str

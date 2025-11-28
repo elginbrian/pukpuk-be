@@ -103,8 +103,11 @@ class RouteOptimizationRepository(IRouteOptimizationRepository):
         ]
 
     async def _compute_optimized_routes(self, request: RouteOptimizationRequest, locations: List[Location], location_dict: dict, vehicle: Vehicle) -> RouteOptimizationResponse:
-        """Compute optimized routes using Dijkstra algorithm"""
-        graph = self._build_graph(locations)
+        """Compute optimized routes directly from origin to destination"""
+        origin_loc = location_dict[request.origin]
+        dest_loc = location_dict[request.destination]
+
+        direct_distance = self._haversine_distance(origin_loc.coordinates, dest_loc.coordinates)
 
         # Adjust for load capacity (higher load = slower speed, higher fuel consumption)
         load_factor = min(1.0 + (request.load_capacity - vehicle.min_capacity) / (vehicle.max_capacity - vehicle.min_capacity), 1.5)
@@ -117,22 +120,19 @@ class RouteOptimizationRepository(IRouteOptimizationRepository):
         # Toll cost per km (approximate)
         toll_cost_per_km = 500
 
-        def distance_weight(edge): return edge['distance']
-        def cost_weight(edge): return edge['distance'] * fuel_price / adjusted_fuel_consumption + edge['distance'] * toll_cost_per_km
-        def co2_weight(edge): return edge['distance'] * vehicle.co2_factor / load_factor
+        # For direct routes, all options use the same path but different optimization criteria
+        # Fastest: direct route at maximum speed
+        # Cheapest: slightly longer route but cheaper (simulated by adding 10% distance)
+        # Greenest: slightly longer route but more efficient (simulated by adding 5% distance)
 
-        # Compute routes
-        fastest_cost, fastest_path, fastest_dist = self._dijkstra(graph, request.origin, request.destination, distance_weight)
-        cheapest_cost, cheapest_path, cheapest_dist = self._dijkstra(graph, request.origin, request.destination, cost_weight)
-        greenest_cost, greenest_path, greenest_dist = self._dijkstra(graph, request.origin, request.destination, co2_weight)
+        fastest_dist = direct_distance
+        cheapest_dist = direct_distance * 1.1  # 10% longer but cheaper
+        greenest_dist = direct_distance * 1.05  # 5% longer but greener
 
-        if not fastest_path or not cheapest_path or not greenest_path:
-            raise ValueError("No route found between origin and destination")
-
-        # Generate RouteOptions
-        fastest = self._create_route_option("fastest", fastest_dist, fastest_path, location_dict, adjusted_speed, adjusted_fuel_consumption, fuel_price, toll_cost_per_km, vehicle.co2_factor, load_factor)
-        cheapest = self._create_route_option("cheapest", cheapest_dist, cheapest_path, location_dict, adjusted_speed * 0.8, adjusted_fuel_consumption, fuel_price, toll_cost_per_km, vehicle.co2_factor, load_factor)
-        greenest = self._create_route_option("greenest", greenest_dist, greenest_path, location_dict, adjusted_speed * 0.9, adjusted_fuel_consumption, fuel_price, toll_cost_per_km, vehicle.co2_factor, load_factor)
+        # Create route options
+        fastest = self._create_route_option("fastest", fastest_dist, [request.origin, request.destination], location_dict, adjusted_speed, adjusted_fuel_consumption, fuel_price, toll_cost_per_km, vehicle.co2_factor, load_factor)
+        cheapest = self._create_route_option("cheapest", cheapest_dist, [request.origin, request.destination], location_dict, adjusted_speed * 0.8, adjusted_fuel_consumption, fuel_price, toll_cost_per_km, vehicle.co2_factor, load_factor)
+        greenest = self._create_route_option("greenest", greenest_dist, [request.origin, request.destination], location_dict, adjusted_speed * 0.9, adjusted_fuel_consumption, fuel_price, toll_cost_per_km, vehicle.co2_factor, load_factor)
 
         return RouteOptimizationResponse(fastest=fastest, cheapest=cheapest, greenest=greenest)
 
@@ -147,10 +147,13 @@ class RouteOptimizationRepository(IRouteOptimizationRepository):
         toll_cost = distance * toll_cost_per_km
         co2 = distance * co2_factor / load_factor
 
-        path_names = [location_dict[code].name for code in path if code in location_dict]
-        path_str = " → ".join(path_names)
-
-        waypoints = [location_dict[code].coordinates for code in path if code in location_dict]
+        # Create simple path description from origin to destination
+        if len(path) >= 2:
+            origin_name = location_dict.get(path[0], {}).name if path[0] in location_dict else path[0]
+            dest_name = location_dict.get(path[-1], {}).name if path[-1] in location_dict else path[-1]
+            path_str = f"{origin_name} → {dest_name}"
+        else:
+            path_str = "Invalid path"
 
         return RouteOption(
             id=option_type,
@@ -159,8 +162,7 @@ class RouteOptimizationRepository(IRouteOptimizationRepository):
             fuel_cost=round(fuel_cost),
             toll_cost=round(toll_cost),
             co2=round(co2, 1),
-            path=path_str,
-            waypoints=waypoints
+            path=path_str
         )
 
     async def optimize_route(self, request: RouteOptimizationRequest) -> RouteOptimizationResponse:

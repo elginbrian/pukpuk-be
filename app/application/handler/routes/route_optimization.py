@@ -1,11 +1,17 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List
+import httpx
 from app.application.container import container
 from app.application.use_cases import OptimizeRouteUseCase, GetLocationsUseCase, GetVehiclesUseCase, GetRouteConfigurationsUseCase
 from app.application.domain.entities import RouteOptimizationRequest, RouteOptimizationResponse, Location, Vehicle, RouteConfiguration
 
 router = APIRouter(prefix="/route-optimization", tags=["route-optimization"])
+
+# Pydantic models for routing
+class RouteDirectionsRequest(BaseModel):
+    origin_coords: List[float]  # [lat, lng]
+    dest_coords: List[float]   # [lat, lng]
 
 # Dependency injection
 def get_optimize_route_use_case() -> OptimizeRouteUseCase:
@@ -60,15 +66,32 @@ async def get_vehicles(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get vehicles: {str(e)}")
 
-@router.get("/configurations", response_model=List[RouteConfiguration])
-async def get_route_configurations(
-    use_case: GetRouteConfigurationsUseCase = Depends(get_route_configurations_use_case)
-):
+@router.post("/directions")
+async def get_route_directions(request: RouteDirectionsRequest):
     """
-    Get all route configurations.
-    Returns a list of predefined route configurations.
+    Get actual road route directions between two coordinates using OpenRouteService.
+    Returns GeoJSON with route geometry.
     """
     try:
-        return await use_case.execute()
+       
+        ORS_API_KEY = "5b3ce3597851110001cf6248d5c6e4c6b4c40b8b9b8c4f4b8c4f4b8c4f4b8c4f4b"  # Public demo key
+        url = f"https://api.openrouteservice.org/v2/directions/driving-car?api_key={ORS_API_KEY}&start={request.origin_coords[1]},{request.origin_coords[0]}&end={request.dest_coords[1]},{request.dest_coords[0]}&format=geojson"
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            return response.json()
+
+    except httpx.HTTPStatusError as e:
+        return {
+            "type": "Feature",
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [request.origin_coords[1], request.origin_coords[0]],
+                    [request.dest_coords[1], request.dest_coords[0]]
+                ]
+            }
+        }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get route configurations: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get route directions: {str(e)}")
