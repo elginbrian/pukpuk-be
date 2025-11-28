@@ -32,7 +32,7 @@ class Container(containers.DeclarativeContainer):
     get_forecast_use_case = providers.Singleton(GetForecastUseCase, forecast_repo=forecast_repository, metrics_repo=metrics_repository)
     get_metrics_use_case = providers.Singleton(GetMetricsUseCase, metrics_repo=metrics_repository)
     simulate_scenario_use_case = providers.Singleton(SimulateScenarioUseCase, forecast_repo=forecast_repository)
-    generate_ai_insight_use_case = providers.Singleton(GenerateAIInsightUseCase, ai_insights_repo=ai_insights_repository, forecast_repo=forecast_repository, metrics_repo=metrics_repository, chat_session_repo=chat_session_repository)
+    generate_ai_insight_use_case = providers.Singleton(GenerateAIInsightUseCase, ai_insights_repo=ai_insights_repository, forecast_repo=forecast_repository, metrics_repo=metrics_repository, chat_session_repo=chat_session_repository, route_repo=route_optimization_repository, forecast_use_case=get_forecast_use_case)
     chat_session_use_case = providers.Singleton(ChatSessionUseCase, chat_session_repo=chat_session_repository)
     optimize_route_use_case = providers.Singleton(OptimizeRouteUseCase, route_repo=route_optimization_repository)
     get_locations_use_case = providers.Singleton(GetLocationsUseCase, route_repo=route_optimization_repository)
