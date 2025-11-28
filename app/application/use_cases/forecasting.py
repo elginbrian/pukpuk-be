@@ -192,5 +192,8 @@ class SimulateScenarioUseCase(ISimulateScenarioUseCase):
             for item in data:
                 if item.predicted:
                     item.predicted *= (1 + rainfall_change / 100)
+                    ci_width = abs(item.predicted) * 0.15
+                    item.upper_ci = item.predicted + ci_width
+                    item.lower_ci = max(0, item.predicted - ci_width)
 
         return data
