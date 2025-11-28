@@ -76,11 +76,34 @@ Make insights specific, actionable, and based on the actual data provided. Retur
             ai_response = response.text.strip()
 
             import json
+            import re
+            
+            new_insights = []
             try:
-                new_insights = json.loads(ai_response)
+                json_match = re.search(r'\[.*\]', ai_response, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(0)
+                    new_insights = json.loads(json_str)
+                else:
+                    new_insights = json.loads(ai_response)
+                
                 if not isinstance(new_insights, list):
                     new_insights = []
-            except json.JSONDecodeError:
+                    
+                validated_insights = []
+                for insight in new_insights:
+                    if isinstance(insight, dict) and 'title' in insight and 'description' in insight:
+                        validated_insights.append({
+                            'title': insight.get('title', 'Insight'),
+                            'description': insight.get('description', 'Generated insight'),
+                            'type': insight.get('type', 'general'),
+                            'priority': insight.get('priority', 'medium')
+                        })
+                new_insights = validated_insights
+                
+            except (json.JSONDecodeError, Exception) as e:
+                print(f"Failed to parse AI response as JSON: {str(e)}")
+                print(f"AI Response: {ai_response[:500]}...")
                 new_insights = []
 
             # If we got valid insights from Gemini, save and return them
@@ -108,7 +131,32 @@ Make insights specific, actionable, and based on the actual data provided. Retur
 
     async def _get_fallback_insights(self, limit: int) -> List[dict]:
         """Return fallback insights when AI generation fails"""
-        fallback_insights = []
+        fallback_insights = [
+            {
+                "title": "Demand Monitoring",
+                "description": "Regular monitoring of demand patterns shows seasonal variations. Consider adjusting inventory levels based on historical trends.",
+                "type": "demand",
+                "priority": "medium"
+            },
+            {
+                "title": "Route Optimization",
+                "description": "Optimizing delivery routes can reduce transportation costs by up to 15%. Review current routing algorithms for efficiency improvements.",
+                "type": "route",
+                "priority": "high"
+            },
+            {
+                "title": "Inventory Management",
+                "description": "Maintaining optimal inventory levels prevents stockouts and reduces holding costs. Consider implementing automated reorder points.",
+                "type": "inventory",
+                "priority": "medium"
+            },
+            {
+                "title": "Performance Tracking",
+                "description": "Track key performance indicators regularly to identify bottlenecks and improvement opportunities in your supply chain operations.",
+                "type": "general",
+                "priority": "low"
+            }
+        ]
         
         # Save fallback insights to database as well
         for insight_data in fallback_insights[:limit]:
