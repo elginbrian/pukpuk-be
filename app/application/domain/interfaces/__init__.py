@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from ..entities import ForecastData, Metrics, AIInsight, ChatSession, ChatMessage, RouteOptimizationResponse, RouteOptimizationRequest
+from ..entities import ForecastData, Metrics, AIInsight, ChatSession, ChatMessage, RouteOptimizationResponse, RouteOptimizationRequest, Location
 
 class IForecastRepository(ABC):
     @abstractmethod
@@ -53,4 +53,8 @@ class IChatSessionRepository(ABC):
 class IRouteOptimizationRepository(ABC):
     @abstractmethod
     async def optimize_route(self, request: RouteOptimizationRequest) -> RouteOptimizationResponse:
+        pass
+
+    @abstractmethod
+    async def get_locations(self) -> List[Location]:
         pass

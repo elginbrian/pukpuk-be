@@ -1,6 +1,6 @@
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import List, Optional
-from ...application.domain.entities import ForecastData, Metrics, AIInsight, ChatSession, ChatMessage, RouteOptimizationRequest, RouteOptimizationResponse, RouteOption
+from ...application.domain.entities import ForecastData, Metrics, AIInsight, ChatSession, ChatMessage, RouteOptimizationRequest, RouteOptimizationResponse, RouteOption, Location, RouteConfiguration
 from ...application.domain.interfaces import IForecastRepository, IMetricsRepository, IAIInsightsRepository, IChatSessionRepository, IRouteOptimizationRepository
 from ..database.database import is_database_available
 import uuid
@@ -160,9 +160,109 @@ class RouteOptimizationRepository(IRouteOptimizationRepository):
         self.database = database
 
     async def optimize_route(self, request: RouteOptimizationRequest) -> RouteOptimizationResponse:
-        # Mock route optimization logic
-        # In a real implementation, this would integrate with a routing service like Google Maps API, OSRM, etc.
-        
+        # Try to get data from database first
+        if self.database is not None and is_database_available():
+            try:
+                # Get locations from database
+                locations = await Location.find().to_list()
+                location_dict = {loc.code: loc for loc in locations}
+
+                # Get route configuration from database
+                route_config = await RouteConfiguration.find(
+                    RouteConfiguration.origin == request.origin,
+                    RouteConfiguration.destination == request.destination,
+                    RouteConfiguration.vehicle_type == request.vehicle_type,
+                    RouteConfiguration.load_capacity == request.load_capacity
+                ).first_or_none()
+
+                if route_config and request.origin in location_dict and request.destination in location_dict:
+                    # Use database data
+                    return await self._generate_from_database(request, route_config, location_dict)
+            except Exception as e:
+                # Log error and fall back to mock data
+                print(f"Database error in route optimization: {e}")
+
+        # Fall back to mock data
+        return await self._generate_mock_response(request)
+
+    async def _generate_from_database(self, request: RouteOptimizationRequest, route_config: RouteConfiguration, location_dict: dict) -> RouteOptimizationResponse:
+        # Adjust distances based on vehicle type and load capacity
+        vehicle_multiplier = {
+            "truck-small": 1.0,
+            "truck-medium": 1.1,
+            "truck-large": 1.2,
+        }.get(request.vehicle_type, 1.0)
+
+        load_factor = min(1.0 + (request.load_capacity - 5) * 0.05, 1.3)  # Max 30% increase
+
+        # Generate route options using database data
+        fastest = await self._generate_route_option_from_db(
+            "fastest", route_config.fastest_distance * vehicle_multiplier * load_factor,
+            route_config.fastest_path, location_dict, request.origin, request.destination
+        )
+        cheapest = await self._generate_route_option_from_db(
+            "cheapest", route_config.cheapest_distance * vehicle_multiplier * load_factor,
+            route_config.cheapest_path, location_dict, request.origin, request.destination
+        )
+        greenest = await self._generate_route_option_from_db(
+            "greenest", route_config.greenest_distance * vehicle_multiplier * load_factor,
+            route_config.greenest_path, location_dict, request.origin, request.destination
+        )
+
+        return RouteOptimizationResponse(
+            fastest=fastest,
+            cheapest=cheapest,
+            greenest=greenest
+        )
+
+    async def _generate_route_option_from_db(self, option_type: str, distance: float, path_codes: List[str], location_dict: dict, origin: str, destination: str) -> RouteOption:
+        # Generate waypoints from path codes
+        waypoints = []
+        for code in path_codes:
+            if code in location_dict:
+                waypoints.append(location_dict[code].coordinates)
+
+        # Calculate costs and emissions based on option type
+        if option_type == "fastest":
+            duration_hours = distance / 60  # 60 km/h average speed
+            fuel_cost = distance * 12000  # IDR per km
+            toll_cost = 45000
+            co2 = distance * 0.35  # kg CO2 per km
+        elif option_type == "cheapest":
+            duration_hours = distance / 45  # 45 km/h average speed
+            fuel_cost = distance * 10000  # IDR per km
+            toll_cost = 25000
+            co2 = distance * 0.4  # kg CO2 per km
+        else:  # greenest
+            duration_hours = distance / 50  # 50 km/h average speed
+            fuel_cost = distance * 11000  # IDR per km
+            toll_cost = 35000
+            co2 = distance * 0.3  # kg CO2 per km
+
+        hours = int(duration_hours)
+        minutes = int((duration_hours - hours) * 60)
+        duration = f"{hours}h {minutes}min"
+
+        # Generate path description
+        path_names = []
+        for code in path_codes:
+            if code in location_dict:
+                path_names.append(location_dict[code].name)
+        path = " → ".join(path_names)
+
+        return RouteOption(
+            id=option_type,
+            distance=round(distance, 1),
+            duration=duration,
+            fuel_cost=int(fuel_cost),
+            toll_cost=int(toll_cost),
+            co2=round(co2, 1),
+            path=path,
+            waypoints=waypoints
+        )
+
+    async def _generate_mock_response(self, request: RouteOptimizationRequest) -> RouteOptimizationResponse:
+        # Mock route optimization logic (fallback)
         # Base distances and times (mock data)
         base_distances = {
             ("plant-a", "kios-garut"): {"fastest": 245, "cheapest": 280, "greenest": 260},
@@ -195,24 +295,53 @@ class RouteOptimizationRepository(IRouteOptimizationRepository):
         )
 
     def _generate_route_option(self, option_type: str, distance: float, origin: str, destination: str) -> RouteOption:
-        # Mock route generation logic
+        # Mock route generation logic with waypoints
+        locations = {
+            "plant-a": [-6.3074, 107.3103],
+            "plant-b": [-7.1612, 112.6535],
+            "warehouse-a": [-6.2088, 106.8166],
+            "warehouse-b": [-6.595, 106.8166],
+            "kios-bandung": [-6.9175, 107.6191],
+            "kios-tasikmalaya": [-7.3156, 108.2048],
+            "kios-sumedang": [-6.9858, 107.8148],
+            "kios-garut": [-7.207, 107.9177],
+        }
+
         if option_type == "fastest":
             duration_hours = distance / 60  # 60 km/h average speed
             fuel_cost = distance * 12000  # IDR per km
             toll_cost = 45000
             co2 = distance * 0.35  # kg CO2 per km
+            waypoints = [
+                locations.get(origin, locations["plant-a"]),
+                locations.get("warehouse-b", locations["warehouse-b"]),
+                locations.get("kios-bandung", locations["kios-bandung"]),
+                locations.get(destination, locations["kios-garut"])
+            ]
             path = f"{origin.title()} → Warehouse B → Kios Bandung → {destination.title()}"
         elif option_type == "cheapest":
             duration_hours = distance / 45  # 45 km/h average speed
             fuel_cost = distance * 10000  # IDR per km
             toll_cost = 25000
             co2 = distance * 0.4  # kg CO2 per km
+            waypoints = [
+                locations.get(origin, locations["plant-a"]),
+                locations.get("warehouse-a", locations["warehouse-a"]),
+                locations.get("kios-tasikmalaya", locations["kios-tasikmalaya"]),
+                locations.get(destination, locations["kios-garut"])
+            ]
             path = f"{origin.title()} → Warehouse A → Kios Tasikmalaya → {destination.title()}"
         else:  # greenest
             duration_hours = distance / 50  # 50 km/h average speed
             fuel_cost = distance * 11000  # IDR per km
             toll_cost = 35000
             co2 = distance * 0.3  # kg CO2 per km
+            waypoints = [
+                locations.get(origin, locations["plant-a"]),
+                locations.get("warehouse-b", locations["warehouse-b"]),
+                locations.get("kios-sumedang", locations["kios-sumedang"]),
+                locations.get(destination, locations["kios-garut"])
+            ]
             path = f"{origin.title()} → Warehouse B → Kios Sumedang → {destination.title()}"
 
         hours = int(duration_hours)
@@ -226,5 +355,17 @@ class RouteOptimizationRepository(IRouteOptimizationRepository):
             fuel_cost=int(fuel_cost),
             toll_cost=int(toll_cost),
             co2=round(co2, 1),
-            path=path
+            path=path,
+            waypoints=waypoints
         )
+
+    async def get_locations(self) -> List[Location]:
+        """Get all locations from database, fallback to empty list if database unavailable."""
+        if self.database is not None and is_database_available():
+            try:
+                locations = await Location.find().to_list()
+                return locations
+            except Exception as e:
+                print(f"Database error getting locations: {e}")
+                return []
+        return []

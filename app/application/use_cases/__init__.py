@@ -1,7 +1,7 @@
 import random
 from typing import List, Optional
-from ..domain.entities import ForecastData, Metrics, AIInsight, AIInsightResponse, ChatSession, ChatMessage, RouteOptimizationRequest, RouteOptimizationResponse, RouteOption
-from ..domain.use_cases import IGetForecastUseCase, IGetMetricsUseCase, ISimulateScenarioUseCase, IGenerateAIInsightUseCase, IChatSessionUseCase, IOptimizeRouteUseCase
+from ..domain.entities import ForecastData, Metrics, AIInsight, AIInsightResponse, ChatSession, ChatMessage, RouteOptimizationRequest, RouteOptimizationResponse, RouteOption, Location
+from ..domain.use_cases import IGetForecastUseCase, IGetMetricsUseCase, ISimulateScenarioUseCase, IGenerateAIInsightUseCase, IChatSessionUseCase, IOptimizeRouteUseCase, IGetLocationsUseCase
 from ..domain.interfaces import IForecastRepository, IMetricsRepository, IAIInsightsRepository, IChatSessionRepository, IRouteOptimizationRepository
 from ...infrastructure.utils.export_service import ExportService
 import google.generativeai as genai
@@ -305,3 +305,11 @@ class OptimizeRouteUseCase(IOptimizeRouteUseCase):
 
     async def execute(self, request: RouteOptimizationRequest) -> RouteOptimizationResponse:
         return await self.route_repo.optimize_route(request)
+
+
+class GetLocationsUseCase(IGetLocationsUseCase):
+    def __init__(self, route_repo: IRouteOptimizationRepository):
+        self.route_repo = route_repo
+
+    async def execute(self) -> List[Location]:
+        return await self.route_repo.get_locations()

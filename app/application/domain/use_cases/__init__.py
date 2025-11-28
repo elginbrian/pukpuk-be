@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from ..entities import ForecastData, Metrics, AIInsightResponse, ChatSession, ChatMessage, RouteOptimizationResponse, RouteOptimizationRequest
+from ..entities import ForecastData, Metrics, AIInsightResponse, ChatSession, ChatMessage, RouteOptimizationResponse, RouteOptimizationRequest, Location
 
 class IGetForecastUseCase(ABC):
     @abstractmethod
@@ -43,4 +43,9 @@ class IChatSessionUseCase(ABC):
 class IOptimizeRouteUseCase(ABC):
     @abstractmethod
     async def execute(self, request: RouteOptimizationRequest) -> RouteOptimizationResponse:
+        pass
+
+class IGetLocationsUseCase(ABC):
+    @abstractmethod
+    async def execute(self) -> List[Location]:
         pass
