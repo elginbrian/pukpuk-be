@@ -13,7 +13,22 @@ class GetForecastUseCase(IGetForecastUseCase):
         # Get data from repository (will return empty list if database not available)
         data = await self.forecast_repo.get_forecast_data(crop_type, region, season)
         if data:
-            return data
+           
+            seen = set()
+            deduped: List[ForecastData] = []
+         
+            month_order = {m: i for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep"]) }
+            for item in data:
+                if item.month not in seen:
+                    seen.add(item.month)
+                    deduped.append(item)
+
+            try:
+                deduped.sort(key=lambda x: month_order.get(x.month, 999))
+            except Exception:
+                pass
+
+            return deduped
 
         # Generate and save data only if database is available
         from ...infrastructure.database.database import is_database_available
