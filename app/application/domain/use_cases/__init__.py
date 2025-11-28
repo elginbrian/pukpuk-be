@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from ..entities import ForecastData, Metrics, AIInsightResponse, ChatSession, ChatMessage, RouteOptimizationResponse, RouteOptimizationRequest, Location, Vehicle, RouteConfiguration
+from ..entities import ForecastData, Metrics, AIInsightResponse, ChatSession, ChatMessage, RouteOptimizationResponse, RouteOptimizationRequest, Location, RouteConfiguration
+from ..entities import Vehicle
 
 class IGetForecastUseCase(ABC):
     @abstractmethod
