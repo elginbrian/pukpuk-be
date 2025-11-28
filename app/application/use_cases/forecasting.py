@@ -38,10 +38,16 @@ class GetForecastUseCase(IGetForecastUseCase):
             trend_factor = 1.05 if season == "wet-season" and i >= 6 else 0.98
             predicted = base * trend_factor + random.randint(-150, 250)
             
+            ci_width = abs(predicted) * 0.15 
+            upper_ci = predicted + ci_width
+            lower_ci = max(0, predicted - ci_width)  
+            
             data.append(ForecastData(
                 month=month,
                 actual=actual,
                 predicted=max(0, predicted),  
+                upper_ci=upper_ci,
+                lower_ci=lower_ci,
                 crop_type=crop_type,
                 region=region,
                 season=season
@@ -164,10 +170,17 @@ class SimulateScenarioUseCase(ISimulateScenarioUseCase):
                 trend_factor = 1.05 if season == "wet-season" and i >= 6 else 0.98
                 predicted = base * trend_factor + random.randint(-150, 250)
                 
+                # Calculate confidence intervals
+                ci_width = abs(predicted) * 0.15
+                upper_ci = predicted + ci_width
+                lower_ci = max(0, predicted - ci_width)
+                
                 data.append(ForecastData(
                     month=month,
                     actual=actual,
                     predicted=max(0, predicted),
+                    upper_ci=upper_ci,
+                    lower_ci=lower_ci,
                     crop_type=crop_type,
                     region=region,
                     season=season

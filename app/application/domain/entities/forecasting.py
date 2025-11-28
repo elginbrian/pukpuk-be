@@ -7,6 +7,8 @@ class ForecastData(Document):
     month: str
     actual: Optional[float]
     predicted: float
+    upper_ci: Optional[float] = None
+    lower_ci: Optional[float] = None
     crop_type: str
     region: str
     season: str

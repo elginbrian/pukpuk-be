@@ -50,10 +50,17 @@ class SeedService:
                         base = base_demands[i] * multiplier
                         actual = base + random.randint(-200, 200) if i < 6 else None
                         predicted = base + random.randint(-150, 250)
+                        
+                        ci_width = abs(predicted) * 0.15
+                        upper_ci = predicted + ci_width
+                        lower_ci = max(0, predicted - ci_width)
+                        
                         forecast_data.append(ForecastData(
                             month=month,
                             actual=actual,
                             predicted=max(0, predicted),
+                            upper_ci=upper_ci,
+                            lower_ci=lower_ci,
                             crop_type=crop,
                             region=region,
                             season=season
