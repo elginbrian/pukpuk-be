@@ -32,10 +32,9 @@ app.include_router(route_optimization_router)
 async def startup_event():
     await init_database()
     await seed_database()
-    from seed_route_data import seed_locations, seed_vehicles, seed_route_configurations
-    await seed_locations()
-    await seed_vehicles()
-    await seed_route_configurations()
+    from .infrastructure.utils.seed_service import SeedService
+    seed_service = SeedService()
+    await seed_service.seed_all_data()
 
 @app.on_event("shutdown")
 async def shutdown_event():
