@@ -88,6 +88,62 @@ class GenerateAIInsightUseCase(IGenerateAIInsightUseCase):
 
         return AIInsightResponse(response=ai_response, suggestions=suggestions)
 
+    async def generate_automatic_insights(self, crop_type: str, region: str, season: str, limit: int = 3) -> List[dict]:
+        """Generate automatic insights based on current data conditions"""
+        from ...infrastructure.config.settings import settings
+
+        if not settings.gemini_api_key:
+            return []
+
+        try:
+            genai.configure(api_key=settings.gemini_api_key)
+            model = genai.GenerativeModel('gemini-2.5-flash')
+
+            context = await self._build_comprehensive_context(crop_type, region, season)
+
+            prompt = f"""Based on the following current supply chain data, generate {limit} key insights that would be valuable for a supply chain manager. Each insight should be actionable and focus on critical areas like demand forecasting, inventory management, route optimization, or operational efficiency.
+
+{context}
+
+Generate exactly {limit} insights in the following JSON format:
+[
+  {{
+    "title": "Brief, descriptive title (max 5 words)",
+    "description": "Detailed insight description (max 50 words)",
+    "type": "One of: demand, inventory, route, general",
+    "priority": "high, medium, or low"
+  }}
+]
+
+Focus on:
+- Current demand trends and forecasts
+- Inventory levels and stock optimization
+- Route efficiency and cost savings
+- Operational bottlenecks or opportunities
+- Performance metrics analysis
+
+Make insights specific, actionable, and based on the actual data provided. Return only valid JSON.""" 
+
+            response = model.generate_content(prompt)
+            ai_response = response.text.strip()
+
+            import json
+            try:
+                insights = json.loads(ai_response)
+                if not isinstance(insights, list):
+                    insights = []
+            except json.JSONDecodeError:
+                insights = []
+
+            return insights[:limit]  
+
+        except Exception as e:
+            print(f"Failed to generate automatic insights: {str(e)}")
+            return []
+
+    async def get_recent_insights(self, limit: int = 10) -> List[AIInsight]:
+        return await self.ai_insights_repo.get_all_recent_insights(limit)
+
     def _parse_forecast_parameters(self, query: str) -> dict:
         """Parse query to extract forecasting parameters like crop_type, region, season"""
         query_lower = query.lower()

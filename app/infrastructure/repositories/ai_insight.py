@@ -26,6 +26,14 @@ class AIInsightsRepository(IAIInsightsRepository):
 
         return insights
 
+    async def get_all_recent_insights(self, limit: int = 10) -> List[AIInsight]:
+        if self.database is None or not is_database_available():
+            return []
+
+        insights = await AIInsight.find().sort(-AIInsight.created_at).limit(limit).to_list()
+
+        return insights
+
 class ChatSessionRepository(IChatSessionRepository):
     def __init__(self, database: Optional[AsyncIOMotorDatabase]):
         self.database = database
@@ -35,7 +43,6 @@ class ChatSessionRepository(IChatSessionRepository):
 
         if self.database is None or not is_database_available():
 
-            # Create a mock object with the same interface
             class MockChatSession:
                 def __init__(self, session_id, created_at, last_activity, crop_type, region, season):
                     self.session_id = session_id

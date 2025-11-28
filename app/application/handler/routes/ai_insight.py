@@ -36,6 +36,21 @@ class CreateSessionResponse(BaseModel):
     season: str
     created_at: str
 
+class AIInsightModel(BaseModel):
+    user_query: str
+    ai_response: str
+    suggestions: List[str]
+    crop_type: str
+    region: str
+    season: str
+    created_at: str
+
+class AutomaticInsightModel(BaseModel):
+    title: str
+    description: str
+    type: str
+    priority: str
+
 # Dependency injection
 def get_generate_ai_insight_use_case() -> GenerateAIInsightUseCase:
     return container.generate_ai_insight_use_case()
@@ -101,6 +116,44 @@ async def get_chat_history(
         return history
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"History retrieval error: {str(e)}")
+
+@router.get("/recent-insights", response_model=List[AIInsightModel])
+async def get_recent_insights(
+    limit: int = 10,
+    use_case: GenerateAIInsightUseCase = Depends(get_generate_ai_insight_use_case)
+):
+    """Get recent AI insights from the database"""
+    try:
+        insights = await use_case.get_recent_insights(limit)
+        return [
+            AIInsightModel(
+                user_query=insight.user_query,
+                ai_response=insight.ai_response,
+                suggestions=insight.suggestions,
+                crop_type=insight.crop_type,
+                region=insight.region,
+                season=insight.season,
+                created_at=insight.created_at.isoformat()
+            )
+            for insight in insights
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve insights: {str(e)}")
+
+@router.get("/automatic-insights", response_model=List[AutomaticInsightModel])
+async def get_automatic_insights(
+    crop_type: str = "rice",
+    region: str = "malang regency",
+    season: str = "wet-season",
+    limit: int = 3,
+    use_case: GenerateAIInsightUseCase = Depends(get_generate_ai_insight_use_case)
+):
+    """Generate automatic insights based on current data conditions"""
+    try:
+        insights = await use_case.generate_automatic_insights(crop_type, region, season, limit)
+        return insights
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate insights: {str(e)}")
 
 @router.get("/history")
 async def get_chat_history():

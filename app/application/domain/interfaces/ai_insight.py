@@ -11,6 +11,10 @@ class IAIInsightsRepository(ABC):
     async def get_recent_insights(self, crop_type: str, region: str, season: str, limit: int = 10) -> List[AIInsight]:
         pass
 
+    @abstractmethod
+    async def get_all_recent_insights(self, limit: int = 10) -> List[AIInsight]:
+        pass
+
 class IChatSessionRepository(ABC):
     @abstractmethod
     async def create_session(self, crop_type: str, region: str, season: str) -> ChatSession:
