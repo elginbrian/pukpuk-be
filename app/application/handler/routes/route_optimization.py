@@ -69,20 +69,44 @@ async def get_vehicles(
 @router.post("/directions")
 async def get_route_directions(request: RouteDirectionsRequest):
     """
-    Get actual road route directions between two coordinates using OpenRouteService.
+    Get actual road route directions between two coordinates using OSRM.
     Returns GeoJSON with route geometry.
     """
     try:
-       
-        ORS_API_KEY = "5b3ce3597851110001cf6248d5c6e4c6b4c40b8b9b8c4f4b8c4f4b8c4f4b8c4f4b"  # Public demo key
-        url = f"https://api.openrouteservice.org/v2/directions/driving-car?api_key={ORS_API_KEY}&start={request.origin_coords[1]},{request.origin_coords[0]}&end={request.dest_coords[1]},{request.dest_coords[0]}&format=geojson"
+    
+        start_lng, start_lat = request.origin_coords[1], request.origin_coords[0]
+        end_lng, end_lat = request.dest_coords[1], request.dest_coords[0]
 
-        async with httpx.AsyncClient() as client:
+        url = f"https://router.project-osrm.org/route/v1/driving/{start_lng},{start_lat};{end_lng},{end_lat}?overview=full&geometries=geojson"
+
+        print(f"Calling OSRM: {url}")  # Debug logging
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(url)
-            response.raise_for_status()
-            return response.json()
+            print(f"OSRM response status: {response.status_code}")  # Debug logging
 
-    except httpx.HTTPStatusError as e:
+            if response.status_code == 200:
+                data = response.json()
+                print(f"OSRM response: {data}")  # Debug logging
+
+                if data.get('routes') and len(data['routes']) > 0:
+                    route = data['routes'][0]
+                    return {
+                        "type": "Feature",
+                        "geometry": route['geometry'],
+                        "properties": {
+                            "distance": route.get('distance'),
+                            "duration": route.get('duration')
+                        }
+                    }
+                else:
+                    raise Exception("No routes found in OSRM response")
+            else:
+                print(f"OSRM error: {response.status_code} - {response.text}")
+                raise httpx.HTTPStatusError("API call failed", request=None, response=response)
+
+    except Exception as e:
+        print(f"OSRM failed: {str(e)}") 
         return {
             "type": "Feature",
             "geometry": {
@@ -91,7 +115,8 @@ async def get_route_directions(request: RouteDirectionsRequest):
                     [request.origin_coords[1], request.origin_coords[0]],
                     [request.dest_coords[1], request.dest_coords[0]]
                 ]
+            },
+            "properties": {
+                "fallback": True
             }
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get route directions: {str(e)}")
