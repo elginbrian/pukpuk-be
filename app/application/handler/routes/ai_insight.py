@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List
 from app.application.container import container
-from app.application.use_cases import GenerateAIInsightUseCase, ChatSessionUseCase
+from app.application.use_cases import GenerateAIInsightUseCase, ChatSessionUseCase, AutomaticInsightsUseCase
 from app.application.domain.entities import AIInsight
 
 router = APIRouter(prefix="/ai-insight", tags=["ai-insight"])
@@ -57,6 +57,9 @@ def get_generate_ai_insight_use_case() -> GenerateAIInsightUseCase:
 
 def get_chat_session_use_case() -> ChatSessionUseCase:
     return container.chat_session_use_case()
+
+def get_automatic_insights_use_case() -> AutomaticInsightsUseCase:
+    return container.automatic_insights_use_case()
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat_with_ai(
@@ -146,11 +149,11 @@ async def get_automatic_insights(
     region: str = "malang regency",
     season: str = "wet-season",
     limit: int = 3,
-    use_case: GenerateAIInsightUseCase = Depends(get_generate_ai_insight_use_case)
+    use_case: AutomaticInsightsUseCase = Depends(get_automatic_insights_use_case)
 ):
     """Generate automatic insights based on current data conditions"""
     try:
-        insights = await use_case.generate_automatic_insights(crop_type, region, season, limit)
+        insights = await use_case.generate_insights(crop_type, region, season, limit)
         return insights
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate insights: {str(e)}")

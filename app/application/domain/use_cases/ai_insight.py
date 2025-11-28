@@ -11,8 +11,9 @@ class IGenerateAIInsightUseCase(ABC):
     async def get_recent_insights(self, limit: int = 10) -> List[AIInsight]:
         pass
 
+class IAutomaticInsightsUseCase(ABC):
     @abstractmethod
-    async def generate_automatic_insights(self, crop_type: str, region: str, season: str, limit: int = 3) -> List[dict]:
+    async def generate_insights(self, crop_type: str, region: str, season: str, limit: int = 3) -> List[dict]:
         pass
 
 class IChatSessionUseCase(ABC):

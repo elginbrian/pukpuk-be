@@ -4,7 +4,7 @@ from dependency_injector import containers, providers
 from ..infrastructure.config.settings import Settings
 from ..infrastructure.database.database import get_database_sync
 from ..infrastructure.repositories import ForecastRepository, MetricsRepository, AIInsightsRepository, ChatSessionRepository, RouteOptimizationRepository
-from ..application.use_cases import GetForecastUseCase, GetMetricsUseCase, SimulateScenarioUseCase, GenerateAIInsightUseCase, ChatSessionUseCase, OptimizeRouteUseCase, GetLocationsUseCase, GetVehiclesUseCase, GetRouteConfigurationsUseCase
+from ..application.use_cases import GetForecastUseCase, GetMetricsUseCase, SimulateScenarioUseCase, GenerateAIInsightUseCase, ChatSessionUseCase, OptimizeRouteUseCase, GetLocationsUseCase, GetVehiclesUseCase, GetRouteConfigurationsUseCase, AutomaticInsightsUseCase
 
 
 class Container(containers.DeclarativeContainer):
@@ -34,6 +34,7 @@ class Container(containers.DeclarativeContainer):
     simulate_scenario_use_case = providers.Singleton(SimulateScenarioUseCase, forecast_repo=forecast_repository)
     generate_ai_insight_use_case = providers.Singleton(GenerateAIInsightUseCase, ai_insights_repo=ai_insights_repository, forecast_repo=forecast_repository, metrics_repo=metrics_repository, chat_session_repo=chat_session_repository, route_repo=route_optimization_repository, forecast_use_case=get_forecast_use_case)
     chat_session_use_case = providers.Singleton(ChatSessionUseCase, chat_session_repo=chat_session_repository)
+    automatic_insights_use_case = providers.Singleton(AutomaticInsightsUseCase, ai_insights_repo=ai_insights_repository, forecast_repo=forecast_repository, metrics_repo=metrics_repository, route_repo=route_optimization_repository)
     optimize_route_use_case = providers.Singleton(OptimizeRouteUseCase, route_repo=route_optimization_repository)
     get_locations_use_case = providers.Singleton(GetLocationsUseCase, route_repo=route_optimization_repository)
     get_vehicles_use_case = providers.Singleton(GetVehiclesUseCase, route_repo=route_optimization_repository)
