@@ -47,19 +47,10 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
                             geojson_data = json.load(f)
 
                         # Extract regency codes and names from geojson features
-                        for feature in geojson_data.get('features', []):
+                        for i, feature in enumerate(geojson_data.get('features', []), 1):
                             props = feature.get('properties', {})
-                            # Try different possible ID fields
-                            region_id = (
-                                props.get('prov_id') or
-                                props.get('regency_code', '').replace('id', '') or
-                                props.get('district_code', '').replace('id', '') or
-                                props.get('ID') or
-                                props.get('id') or
-                                props.get('KODE') or
-                                props.get('kode') or
-                                props.get('bps_code')
-                            )
+                            # Generate unique regency code: province_code + 2-digit sequential number
+                            region_id = f"{level}{str(i).zfill(2)}"
                             region_name = (
                                 props.get('name') or
                                 props.get('NAMOBJ') or
@@ -67,9 +58,9 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
                                 props.get('district') or
                                 props.get('regency_name')
                             )
-                            if region_id:
+                            if region_name:
                                 region_codes.append(str(region_id))
-                                region_names.append(region_name or f"Region {region_id}")
+                                region_names.append(region_name)
                     except Exception as e:
                         print(f"Error reading geojson {geojson_path}: {e}")
                         # Fallback to mock data
