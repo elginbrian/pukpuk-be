@@ -21,53 +21,119 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
         # Get region mappings to determine which geojson file to use
         region_mappings = await self.maps_repo.get_region_mappings()
 
-        # Determine which geojson file to read based on level
-        filename = region_mappings.get(level, "indonesia")
-        if not filename:
-            if level == "pulau" or level == "indonesia":
-                filename = "indonesia"
+        # Determine if this is a province level (2 digits) or regency level (4+ digits or name)
+        is_province_level = level.isdigit() and len(level) == 2
+        is_regency_level = (level.isdigit() and len(level) >= 4) or (not level.isdigit() and level not in ["pulau", "indonesia"])
+
+        # For province level, get regency data
+        # For regency level, get district/sub-district data
+        if is_province_level:
+            # Province level - get regencies within this province
+            filename = region_mappings.get(level, f"province_{level}")
+            if not filename or not os.path.exists(os.path.join("data", "maps", f"{filename}.geojson")):
+                # Fallback: generate mock regency codes for this province
+                province_prefix = level
+                region_codes = [f"{province_prefix}{str(i).zfill(2)}" for i in range(1, 15)]  # Mock 14 regencies
+                region_names = [f"Kabupaten/Kota {i}" for i in range(1, 15)]
             else:
-                filename = "kabupaten"  # Default fallback
+                # Load geojson data to get actual regency codes
+                geojson_path = os.path.join("data", "maps", f"{filename}.geojson")
+                region_codes = []
+                region_names = []
 
-        # Load geojson data to get actual region codes
-        geojson_path = os.path.join("data", "maps", f"{filename}.geojson")
-        region_codes = []
+                if os.path.exists(geojson_path):
+                    try:
+                        with open(geojson_path, 'r', encoding='utf-8') as f:
+                            geojson_data = json.load(f)
 
-        if os.path.exists(geojson_path):
-            try:
-                with open(geojson_path, 'r', encoding='utf-8') as f:
-                    geojson_data = json.load(f)
+                        # Extract regency codes and names from geojson features
+                        for feature in geojson_data.get('features', []):
+                            props = feature.get('properties', {})
+                            # Try different possible ID fields
+                            region_id = (
+                                props.get('prov_id') or
+                                props.get('regency_code', '').replace('id', '') or
+                                props.get('district_code', '').replace('id', '') or
+                                props.get('ID') or
+                                props.get('id') or
+                                props.get('KODE') or
+                                props.get('kode') or
+                                props.get('bps_code')
+                            )
+                            region_name = (
+                                props.get('name') or
+                                props.get('NAMOBJ') or
+                                props.get('NAME_2') or
+                                props.get('district') or
+                                props.get('regency_name')
+                            )
+                            if region_id:
+                                region_codes.append(str(region_id))
+                                region_names.append(region_name or f"Region {region_id}")
+                    except Exception as e:
+                        print(f"Error reading geojson {geojson_path}: {e}")
+                        # Fallback to mock data
+                        province_prefix = level
+                        region_codes = [f"{province_prefix}{str(i).zfill(2)}" for i in range(1, 15)]
+                        region_names = [f"Kabupaten/Kota {i}" for i in range(1, 15)]
+        elif is_regency_level:
+         
+            region_codes = [f"{level}_kec_{i}" for i in range(1, 21)]  # Mock 20 districts
+            region_names = [f"Kecamatan {i}" for i in range(1, 21)]
+        else:
+            # National level - use existing logic
+            filename = region_mappings.get(level, "indonesia")
+            if not filename:
+                if level == "pulau" or level == "indonesia":
+                    filename = "indonesia"
+                else:
+                    filename = "kabupaten"
 
-                # Extract region codes from geojson features
-                for feature in geojson_data.get('features', []):
-                    props = feature.get('properties', {})
-                    # Try different possible ID fields
-                    region_id = (
-                        props.get('prov_id') or
-                        props.get('regency_code', '').replace('id', '') or
-                        props.get('district_code', '').replace('id', '') or
-                        props.get('ID') or
-                        props.get('id') or
-                        props.get('KODE') or
-                        props.get('kode') or
-                        props.get('bps_code')
-                    )
-                    if region_id:
-                        region_codes.append(str(region_id))
-            except Exception as e:
-                print(f"Error reading geojson {geojson_path}: {e}")
+            geojson_path = os.path.join("data", "maps", f"{filename}.geojson")
+            region_codes = []
+            region_names = []
 
-        # If no regions found in geojson, use fallback region codes
-        if not region_codes:
-            region_codes = (
-                ["11", "12", "13", "14", "15", "16", "17", "18", "19", "21", "31", "32", "33", "34", "35", "36", "51", "52", "53", "61", "62", "63", "64", "65", "71", "72", "73", "74", "75", "76", "81", "82", "91", "94"]
-                if level == "pulau"
-                else ["3501", "3502", "3507", "3573", "3578", "3204", "3273", "1101", "1102", "1103", "1104", "1105", "1106", "1107", "1108", "1171"]
-            )
+            if os.path.exists(geojson_path):
+                try:
+                    with open(geojson_path, 'r', encoding='utf-8') as f:
+                        geojson_data = json.load(f)
+
+                    # Extract region codes and names from geojson features
+                    for feature in geojson_data.get('features', []):
+                        props = feature.get('properties', {})
+                        region_id = (
+                            props.get('prov_id') or
+                            props.get('regency_code', '').replace('id', '') or
+                            props.get('district_code', '').replace('id', '') or
+                            props.get('ID') or
+                            props.get('id') or
+                            props.get('KODE') or
+                            props.get('kode') or
+                            props.get('bps_code')
+                        )
+                        region_name = (
+                            props.get('name') or
+                            props.get('NAMOBJ') or
+                            props.get('NAME_2') or
+                            props.get('district') or
+                            props.get('regency_name')
+                        )
+                        if region_id:
+                            region_codes.append(str(region_id))
+                            region_names.append(region_name or f"Region {region_id}")
+                except Exception as e:
+                    print(f"Error reading geojson {geojson_path}: {e}")
+
+            # If no regions found in geojson, use fallback region codes
+            if not region_codes:
+                region_codes = ["11", "12", "13", "14", "15", "16", "17", "18", "19", "21", "31", "32", "33", "34", "35", "36", "51", "52", "53", "61", "62", "63", "64", "65", "71", "72", "73", "74", "75", "76", "81", "82", "91", "94"]
+                region_names = [f"Provinsi {code}" for code in region_codes]
 
         # Generate map analytics data
         map_analytics = {}
-        for region_code in region_codes:
+        region_data = []
+
+        for i, region_code in enumerate(region_codes):
             # Generate realistic demand values (50-1000 tons)
             base_value = random.randint(50, 1000)
 
@@ -101,11 +167,22 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
                     label = "Stock Healthy"
                 value = base_value
 
+            region_name = region_names[i] if i < len(region_names) else f"Region {region_code}"
+
             map_analytics[region_code] = MapAnalyticsData(
                 status=status,
                 value=round(value, 1),
                 label=label
             )
+
+            # Store region data for sorting
+            region_data.append({
+                'code': region_code,
+                'name': region_name,
+                'value': round(value, 1),
+                'status': status,
+                'label': label
+            })
 
         # Add some specific overrides for known regions (like in the original mock)
         if level == "35":  # Special case for East Java province
@@ -113,42 +190,48 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
             map_analytics["3573"] = MapAnalyticsData(status="safe", value=500, label="Stok Aman")
             map_analytics["3501"] = MapAnalyticsData(status="overstock", value=950, label="Risk: Dead Stock")
 
-        # Generate regional insights (sample regions with demand data)
+            # Update region_data as well
+            for data in region_data:
+                if data['code'] == "3507":
+                    data.update({'value': 120, 'status': 'critical', 'label': 'Lonjakan Permintaan (CatBoost)'})
+                elif data['code'] == "3573":
+                    data.update({'value': 500, 'status': 'safe', 'label': 'Stok Aman'})
+                elif data['code'] == "3501":
+                    data.update({'value': 950, 'status': 'overstock', 'label': 'Risk: Dead Stock'})
+
+        # Sort regions by importance (critical first, then by value descending) and take top 4
+        def get_importance_score(region):
+            status_priority = {'critical': 4, 'warning': 3, 'overstock': 2, 'safe': 1}
+            return (status_priority.get(region['status'], 0), region['value'])
+
+        sorted_regions = sorted(region_data, key=get_importance_score, reverse=True)
+        top_regions = sorted_regions[:4]
+
+        # Generate regional insights from top 4 regions
         regional_insights = []
-        sample_regions = [
-            ("Kec. Bantul", 12.3),
-            ("Kec. Sleman", 18.7),
-            ("Kec. Yogyakarta", 9.1),
-            ("Kec. Kulon Progo", 15.2)
-        ]
-
-        for region_name, base_demand in sample_regions:
-            # Add some variation to make it more realistic
-            demand_variation = random.uniform(-0.5, 0.5)
-            demand = round(base_demand + demand_variation, 1)
-
+        for region in top_regions:
             # Generate confidence score
             confidence = random.randint(80, 98)
 
-            # Determine trend based on demand variation
-            if demand_variation > 0.2:
+            # Determine trend based on status
+            if region['status'] == 'critical':
                 trend = "up"
-            elif demand_variation < -0.2:
+            elif region['status'] == 'overstock':
                 trend = "down"
             else:
                 trend = "stable"
 
             # Determine risk level
-            if demand < 10:
+            if region['status'] == 'critical':
                 risk = "high"
-            elif demand < 15:
+            elif region['status'] == 'warning':
                 risk = "medium"
             else:
                 risk = "low"
 
             regional_insights.append(RegionalInsight(
-                name=region_name,
-                demand=f"{demand} tons",
+                name=region['name'],
+                demand=f"{region['value']} tons",
                 confidence=confidence,
                 trend=trend,
                 risk=risk
