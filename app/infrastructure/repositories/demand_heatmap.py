@@ -69,11 +69,12 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
                         region_names = [f"Kabupaten/Kota {i}" for i in range(1, 15)]
         elif is_regency_level:
            
-            filename = None
-            for name, fname in region_mappings.items():
-                if fname.startswith(f"id{level}_"):
-                    filename = fname
-                    break
+            filename = region_mappings.get(level)
+            if not filename:
+                for name, fname in region_mappings.items():
+                    if fname.startswith(f"id{level}_"):
+                        filename = fname
+                        break
             if not filename:
                 filename = f"id{level}_unknown"
 
@@ -168,7 +169,7 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
                 risk_factor = random.random()
                 if risk_factor < 0.15:
                     status = "critical"
-                    label = f"Defisit (Urgent) - {round(value, 1)} {unit}"
+                    label = f"Defisit (Urgent) - {round(base_value * 0.3, 1)} {unit}"
                     # Critical regions have lower values
                     value = base_value * 0.3
                 elif risk_factor < 0.35:
@@ -197,10 +198,10 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
 
                 if base_value < threshold:
                     status = "warning"
-                    label = f"Restock Needed - {round(value, 1)} {unit}"
+                    label = f"Restock Needed - {round(base_value, 1)} {unit}"
                 else:
                     status = "safe"
-                    label = f"Stock Healthy - {round(value, 1)} {unit}"
+                    label = f"Stock Healthy - {round(base_value, 1)} {unit}"
                 value = base_value
 
             region_name = region_names[i] if i < len(region_names) else f"Region {region_code}"
