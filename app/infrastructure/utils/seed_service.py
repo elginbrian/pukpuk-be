@@ -20,7 +20,7 @@ from ...application.domain.entities.maps import RegionMappings
 from ...infrastructure.repositories.forecasting import ForecastRepository, MetricsRepository
 from ...infrastructure.repositories.route_optimization import RouteOptimizationRepository
 from ...infrastructure.repositories.maps import MapsRepository
-from ...infrastructure.database.database import init_database, close_database, get_database_sync
+from ...infrastructure.database.database import init_database, close_database, get_database
 
 class SeedService:
     """Service for seeding database with initial data."""
@@ -259,7 +259,7 @@ async def seed_database():
     await init_database()
 
     # Get database instance
-    db = get_database_sync()
+    db = get_database()
     seed_service = SeedService(db)
 
     await seed_service.seed_all_data()

@@ -80,8 +80,8 @@ async def get_route_directions(request: RouteDirectionsRequest):
 
         route_config = None
         try:
-            from app.infrastructure.database.database import get_database_sync
-            db = get_database_sync()
+            from app.infrastructure.database.database import get_database
+            db = get_database()
             if db:
                 from app.application.domain.entities.route_optimization import RouteConfiguration
 

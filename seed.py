@@ -24,7 +24,7 @@ async def main():
         await init_database()
 
         # Get database instance
-        db = await get_database()
+        db = get_database()
         seed_service = SeedService(db)
 
         # Seed all data types

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .infrastructure.config.settings import Settings
-from .infrastructure.database.database import init_database, close_database, is_database_available, get_database_sync
+from .infrastructure.database.database import init_database, close_database, is_database_available, get_database
 from .application.handler.routes.forecasting import router as forecasting_router
 from .application.handler.routes.ai_insight import router as ai_insight_router
 from .application.handler.routes.route_optimization import router as route_optimization_router
@@ -36,7 +36,7 @@ async def startup_event():
     
     if is_database_available():
         from .infrastructure.utils.seed_service import SeedService
-        db = get_database_sync()
+        db = get_database()
         seed_service = SeedService(db)
         await seed_service.seed_all_data()
 

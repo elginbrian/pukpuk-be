@@ -2,7 +2,7 @@
 
 from dependency_injector import containers, providers
 from ..infrastructure.config.settings import Settings
-from ..infrastructure.database.database import get_database_sync
+from ..infrastructure.database.database import get_database
 from ..infrastructure.repositories import ForecastRepository, MetricsRepository, AIInsightsRepository, ChatSessionRepository, RouteOptimizationRepository, DemandHeatmapRepository, MapsRepository
 from ..application.use_cases import GetForecastUseCase, GetMetricsUseCase, SimulateScenarioUseCase, GenerateAIInsightUseCase, ChatSessionUseCase, OptimizeRouteUseCase, GetLocationsUseCase, GetVehiclesUseCase, GetRouteConfigurationsUseCase, AutomaticInsightsUseCase, GetDemandHeatmapDataUseCase
 
@@ -16,7 +16,7 @@ class Container(containers.DeclarativeContainer):
     @providers.Singleton
     def database_factory():
         try:
-            return get_database_sync()
+            return get_database()
         except RuntimeError:
             # Return None if database not available - repositories will handle this
             return None

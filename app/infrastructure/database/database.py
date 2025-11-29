@@ -25,7 +25,7 @@ async def init_database():
         logger.warning(f"Database connection failed: {e}. Using mock data mode.")
         db_available = False
 
-def get_database_sync() -> AsyncIOMotorDatabase:
+def get_database() -> AsyncIOMotorDatabase:
     """Get database synchronously - assumes database is already initialized"""
     if not db_available or database is None:
         raise RuntimeError("Database not available")
