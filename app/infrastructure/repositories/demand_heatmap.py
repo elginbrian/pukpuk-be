@@ -72,7 +72,7 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
                                 props.get('regency_name')
                             )
                             if region_name:
-                                region_codes.append(str(region_id))
+                                region_codes.append(str(region_id).replace("id", ""))
                                 region_names.append(region_name)
                     except Exception as e:
                         print(f"Error reading geojson {geojson_path}: {e}")
@@ -80,6 +80,24 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
                         province_prefix = level
                         region_codes = [f"{province_prefix}{str(i).zfill(2)}" for i in range(1, 15)]
                         region_names = [f"Kabupaten/Kota {i}" for i in range(1, 15)]
+
+                maps_dir = os.path.join("data", "maps")
+                if os.path.exists(maps_dir):
+                    for file in os.listdir(maps_dir):
+                        if file.startswith(f"id{level}7") and "_kota_" in file and file.endswith(".geojson"):
+                            kota_path = os.path.join(maps_dir, file)
+                            try:
+                                with open(kota_path, 'r', encoding='utf-8') as f:
+                                    kota_data = json.load(f)
+                               
+                                if kota_data.get('features'):
+                                    props = kota_data['features'][0].get('properties', {})
+                                    regency_code = props.get('regency_code', file.split('_')[0].replace('id', ''))
+                                    regency_name = props.get('regency', file.split('_kota_')[1].replace('.geojson', '').replace('_', ' ').title())
+                                    region_codes.append(str(regency_code).replace("id", ""))
+                                    region_names.append(regency_name)
+                            except Exception as e:
+                                print(f"Error reading kota geojson {kota_path}: {e}")
         elif is_regency_level:
            
             filename = region_mappings.get(level)
@@ -236,15 +254,15 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
 
         # Add some specific overrides for known regions (like in the original mock)
         if level == "35":  # Special case for East Java province
-            map_analytics["3507"] = MapAnalyticsData(status="critical", value=120, label="Lonjakan Permintaan (CatBoost) - 120 ton")
-            map_analytics["3573"] = MapAnalyticsData(status="safe", value=500, label="Stok Aman - 500 ton")
+            map_analytics["3573"] = MapAnalyticsData(status="critical", value=120, label="Lonjakan Permintaan (CatBoost) - 120 ton")
+            map_analytics["3507"] = MapAnalyticsData(status="safe", value=500, label="Stok Aman - 500 ton")
             map_analytics["3501"] = MapAnalyticsData(status="overstock", value=950, label="Risk: Dead Stock - 950 ton")
 
             # Update region_data as well
             for data in region_data:
-                if data['code'] == "3507":
+                if data['code'] == "3573":
                     data.update({'value': 120, 'status': 'critical', 'label': 'Lonjakan Permintaan (CatBoost) - 120 ton'})
-                elif data['code'] == "3573":
+                elif data['code'] == "3507":
                     data.update({'value': 500, 'status': 'safe', 'label': 'Stok Aman - 500 ton'})
                 elif data['code'] == "3501":
                     data.update({'value': 950, 'status': 'overstock', 'label': 'Risk: Dead Stock - 950 ton'})
@@ -280,7 +298,7 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
                 risk = "low"
 
             regional_insights.append(RegionalInsight(
-                name=region['name'],
+                name=region['name'] if region['code'] != "3573" else "MALANG",
                 code=region['code'],
                 demand=f"{region['value']} {unit}",
                 confidence=confidence,
