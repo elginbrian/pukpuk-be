@@ -18,6 +18,7 @@ class MapAnalyticsData(BaseModel):
 
 class RegionalInsight(BaseModel):
     name: str
+    code: str
     demand: str
     confidence: int
     trend: str  # "up" | "down" | "stable"
