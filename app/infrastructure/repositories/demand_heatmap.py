@@ -68,10 +68,14 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
                         region_codes = [f"{province_prefix}{str(i).zfill(2)}" for i in range(1, 15)]
                         region_names = [f"Kabupaten/Kota {i}" for i in range(1, 15)]
         elif is_regency_level:
-          
-            filename = region_mappings.get(level, f"id{level}_malang.geojson")
+           
+            filename = None
+            for name, fname in region_mappings.items():
+                if fname.startswith(f"id{level}_"):
+                    filename = fname
+                    break
             if not filename:
-                filename = f"id{level}_malang.geojson"
+                filename = f"id{level}_unknown"
 
             geojson_path = os.path.join("data", "maps", f"{filename}.geojson")
             region_codes = []
