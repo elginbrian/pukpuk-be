@@ -8,6 +8,7 @@ class MapAnalyticsData(BaseModel):
 
 class RegionalInsight(BaseModel):
     name: str
+    code: str  # Region code for navigation
     demand: str
     confidence: int
     trend: str  # "up" | "down" | "stable"

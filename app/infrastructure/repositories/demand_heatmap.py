@@ -156,8 +156,16 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
         region_data = []
 
         for i, region_code in enumerate(region_codes):
-            # Generate realistic demand values (50-1000 tons)
-            base_value = random.randint(50, 1000)
+          
+            if not is_province_level and not is_regency_level:
+                base_value = random.randint(1000, 10000)
+                unit = "ton"
+            elif is_province_level:
+                base_value = random.randint(100, 1000)  
+                unit = "ton"
+            else:
+                base_value = random.randint(10, 500) 
+                unit = "kg"
 
             # Apply some logic based on mode and layer
             if mode == "forecast":
@@ -165,28 +173,39 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
                 risk_factor = random.random()
                 if risk_factor < 0.15:
                     status = "critical"
-                    label = "Defisit (Urgent)"
+                    label = f"Defisit (Urgent) - {round(value, 1)} {unit}"
                     # Critical regions have lower values
                     value = base_value * 0.3
                 elif risk_factor < 0.35:
                     status = "warning"
-                    label = "Menipis (Waspada)"
+                    label = f"Menipis (Waspada) - {round(base_value * 0.6, 1)} {unit}"
                     value = base_value * 0.6
                 elif risk_factor > 0.85:
                     status = "overstock"
-                    label = "Overstock (Bahaya)"
+                    label = f"Overstock (Bahaya) - {round(base_value * 1.5, 1)} {unit}"
                     value = base_value * 1.5
                 else:
                     status = "safe"
-                    label = "Aman"
+                    label = f"Aman - {round(base_value, 1)} {unit}"
                     value = base_value
             else:  # live mode
-                if base_value < 200:
+                # Adjust threshold based on geographical level
+                if not is_province_level and not is_regency_level:
+                    # National level - provinces
+                    threshold = 3000  # 3000 tons
+                elif is_province_level:
+                    # Province level - regencies
+                    threshold = 300   # 300 tons
+                else:
+                    # Regency level - districts
+                    threshold = 50    # 50 kg
+
+                if base_value < threshold:
                     status = "warning"
-                    label = "Restock Needed"
+                    label = f"Restock Needed - {round(value, 1)} {unit}"
                 else:
                     status = "safe"
-                    label = "Stock Healthy"
+                    label = f"Stock Healthy - {round(value, 1)} {unit}"
                 value = base_value
 
             region_name = region_names[i] if i < len(region_names) else f"Region {region_code}"
@@ -208,18 +227,18 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
 
         # Add some specific overrides for known regions (like in the original mock)
         if level == "35":  # Special case for East Java province
-            map_analytics["3507"] = MapAnalyticsData(status="critical", value=120, label="Lonjakan Permintaan (CatBoost)")
-            map_analytics["3573"] = MapAnalyticsData(status="safe", value=500, label="Stok Aman")
-            map_analytics["3501"] = MapAnalyticsData(status="overstock", value=950, label="Risk: Dead Stock")
+            map_analytics["3507"] = MapAnalyticsData(status="critical", value=120, label="Lonjakan Permintaan (CatBoost) - 120 ton")
+            map_analytics["3573"] = MapAnalyticsData(status="safe", value=500, label="Stok Aman - 500 ton")
+            map_analytics["3501"] = MapAnalyticsData(status="overstock", value=950, label="Risk: Dead Stock - 950 ton")
 
             # Update region_data as well
             for data in region_data:
                 if data['code'] == "3507":
-                    data.update({'value': 120, 'status': 'critical', 'label': 'Lonjakan Permintaan (CatBoost)'})
+                    data.update({'value': 120, 'status': 'critical', 'label': 'Lonjakan Permintaan (CatBoost) - 120 ton'})
                 elif data['code'] == "3573":
-                    data.update({'value': 500, 'status': 'safe', 'label': 'Stok Aman'})
+                    data.update({'value': 500, 'status': 'safe', 'label': 'Stok Aman - 500 ton'})
                 elif data['code'] == "3501":
-                    data.update({'value': 950, 'status': 'overstock', 'label': 'Risk: Dead Stock'})
+                    data.update({'value': 950, 'status': 'overstock', 'label': 'Risk: Dead Stock - 950 ton'})
 
         # Sort regions by importance (critical first, then by value descending) and take top 4
         def get_importance_score(region):
@@ -253,7 +272,8 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
 
             regional_insights.append(RegionalInsight(
                 name=region['name'],
-                demand=f"{region['value']} tons",
+                code=region['code'],
+                demand=f"{region['value']} {unit}",
                 confidence=confidence,
                 trend=trend,
                 risk=risk
