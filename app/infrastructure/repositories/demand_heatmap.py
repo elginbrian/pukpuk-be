@@ -77,17 +77,10 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
                         region_codes = [f"{province_prefix}{str(i).zfill(2)}" for i in range(1, 15)]
                         region_names = [f"Kabupaten/Kota {i}" for i in range(1, 15)]
         elif is_regency_level:
-         
-            region_codes = [f"{level}_kec_{i}" for i in range(1, 21)]  # Mock 20 districts
-            region_names = [f"Kecamatan {i}" for i in range(1, 21)]
-        else:
-            # National level - use existing logic
-            filename = region_mappings.get(level, "indonesia")
+          
+            filename = region_mappings.get(level, f"id{level}_malang.geojson")
             if not filename:
-                if level == "pulau" or level == "indonesia":
-                    filename = "indonesia"
-                else:
-                    filename = "kabupaten"
+                filename = f"id{level}_malang.geojson"
 
             geojson_path = os.path.join("data", "maps", f"{filename}.geojson")
             region_codes = []
@@ -98,13 +91,43 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
                     with open(geojson_path, 'r', encoding='utf-8') as f:
                         geojson_data = json.load(f)
 
-                    # Extract region codes and names from geojson features
+                    # Extract unique district names from geojson features
+                    district_names = set()
+                    for feature in geojson_data.get('features', []):
+                        props = feature.get('properties', {})
+                        district_name = props.get('district')
+                        if district_name:
+                            district_names.add(district_name)
+
+                    # Convert to sorted list and create region codes
+                    region_names = sorted(list(district_names))
+                    region_codes = [f"{level}_kec_{i}" for i in range(1, len(region_names) + 1)]
+                except Exception as e:
+                    print(f"Error reading geojson {geojson_path}: {e}")
+                    # Fallback to mock data
+                    region_codes = [f"{level}_kec_{i}" for i in range(1, 21)]
+                    region_names = [f"Kecamatan {i}" for i in range(1, 21)]
+            else:
+                # Fallback if geojson doesn't exist
+                region_codes = [f"{level}_kec_{i}" for i in range(1, 21)]
+                region_names = [f"Kecamatan {i}" for i in range(1, 21)]
+        else:
+            # National level - provinces
+            filename = "indonesia"  # Always use indonesia.geojson for national level
+            geojson_path = os.path.join("data", "maps", f"{filename}.geojson")
+            region_codes = []
+            region_names = []
+
+            if os.path.exists(geojson_path):
+                try:
+                    with open(geojson_path, 'r', encoding='utf-8') as f:
+                        geojson_data = json.load(f)
+
+                    # Extract province codes and names from geojson features
                     for feature in geojson_data.get('features', []):
                         props = feature.get('properties', {})
                         region_id = (
                             props.get('prov_id') or
-                            props.get('regency_code', '').replace('id', '') or
-                            props.get('district_code', '').replace('id', '') or
                             props.get('ID') or
                             props.get('id') or
                             props.get('KODE') or
@@ -112,22 +135,21 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
                             props.get('bps_code')
                         )
                         region_name = (
-                            props.get('name') or
-                            props.get('NAMOBJ') or
-                            props.get('NAME_2') or
-                            props.get('district') or
-                            props.get('regency_name')
+                            props.get('prov_name') or
+                            props.get('NAME_1') or
+                            props.get('provinsi') or
+                            props.get('name')
                         )
                         if region_id:
                             region_codes.append(str(region_id))
-                            region_names.append(region_name or f"Region {region_id}")
+                            region_names.append(region_name or f"Provinsi {region_id}")
                 except Exception as e:
                     print(f"Error reading geojson {geojson_path}: {e}")
 
-            # If no regions found in geojson, use fallback region codes
+            # If no regions found in geojson, use fallback province codes
             if not region_codes:
                 region_codes = ["11", "12", "13", "14", "15", "16", "17", "18", "19", "21", "31", "32", "33", "34", "35", "36", "51", "52", "53", "61", "62", "63", "64", "65", "71", "72", "73", "74", "75", "76", "81", "82", "91", "94"]
-                region_names = [f"Provinsi {code}" for code in region_codes]
+                region_names = ["ACEH", "SUMATERA UTARA", "SUMATERA BARAT", "RIAU", "JAMBI", "SUMATERA SELATAN", "BENGKULU", "LAMPUNG", "KEPULAUAN BANGKA BELITUNG", "KEPULAUAN RIAU", "DKI JAKARTA", "JAWA BARAT", "JAWA TENGAH", "DAERAH ISTIMEWA YOGYAKARTA", "JAWA TIMUR", "BANTEN", "BALI", "NUSA TENGGARA BARAT", "NUSA TENGGARA TIMUR", "KALIMANTAN BARAT", "KALIMANTAN TENGAH", "KALIMANTAN SELATAN", "KALIMANTAN TIMUR", "KALIMANTAN UTARA", "SULAWESI UTARA", "SULAWESI TENGAH", "SULAWESI SELATAN", "SULAWESI TENGGARA", "GORONTALO", "SULAWESI BARAT", "MALUKU", "MALUKU UTARA", "PAPUA BARAT", "PAPUA SELATAN"]
 
         # Generate map analytics data
         map_analytics = {}
