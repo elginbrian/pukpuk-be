@@ -3,8 +3,8 @@
 from dependency_injector import containers, providers
 from ..infrastructure.config.settings import Settings
 from ..infrastructure.database.database import get_database_sync
-from ..infrastructure.repositories import ForecastRepository, MetricsRepository, AIInsightsRepository, ChatSessionRepository, RouteOptimizationRepository
-from ..application.use_cases import GetForecastUseCase, GetMetricsUseCase, SimulateScenarioUseCase, GenerateAIInsightUseCase, ChatSessionUseCase, OptimizeRouteUseCase, GetLocationsUseCase, GetVehiclesUseCase, GetRouteConfigurationsUseCase, AutomaticInsightsUseCase
+from ..infrastructure.repositories import ForecastRepository, MetricsRepository, AIInsightsRepository, ChatSessionRepository, RouteOptimizationRepository, DemandHeatmapRepository, MapsRepository
+from ..application.use_cases import GetForecastUseCase, GetMetricsUseCase, SimulateScenarioUseCase, GenerateAIInsightUseCase, ChatSessionUseCase, OptimizeRouteUseCase, GetLocationsUseCase, GetVehiclesUseCase, GetRouteConfigurationsUseCase, AutomaticInsightsUseCase, GetDemandHeatmapDataUseCase
 
 
 class Container(containers.DeclarativeContainer):
@@ -27,6 +27,8 @@ class Container(containers.DeclarativeContainer):
     ai_insights_repository = providers.Singleton(AIInsightsRepository, database=database_factory)
     chat_session_repository = providers.Singleton(ChatSessionRepository, database=database_factory)
     route_optimization_repository = providers.Singleton(RouteOptimizationRepository, database=database_factory)
+    maps_repository = providers.Singleton(MapsRepository, database=database_factory)
+    demand_heatmap_repository = providers.Singleton(DemandHeatmapRepository, database=database_factory, maps_repo=maps_repository)
 
     # Use Cases
     get_forecast_use_case = providers.Singleton(GetForecastUseCase, forecast_repo=forecast_repository, metrics_repo=metrics_repository)
@@ -39,6 +41,7 @@ class Container(containers.DeclarativeContainer):
     get_locations_use_case = providers.Singleton(GetLocationsUseCase, route_repo=route_optimization_repository)
     get_vehicles_use_case = providers.Singleton(GetVehiclesUseCase, route_repo=route_optimization_repository)
     get_route_configurations_use_case = providers.Singleton(GetRouteConfigurationsUseCase, route_repo=route_optimization_repository)
+    get_demand_heatmap_data_use_case = providers.Singleton(GetDemandHeatmapDataUseCase, demand_heatmap_repo=demand_heatmap_repository)
 
 
 # Global container instance

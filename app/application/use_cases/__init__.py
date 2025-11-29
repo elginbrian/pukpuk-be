@@ -2,6 +2,8 @@ from .forecasting import GetForecastUseCase, GetMetricsUseCase, SimulateScenario
 from .ai_insight import GenerateAIInsightUseCase, ChatSessionUseCase
 from .automatic_insights import AutomaticInsightsUseCase
 from .route_optimization import OptimizeRouteUseCase, GetLocationsUseCase, GetVehiclesUseCase, GetRouteConfigurationsUseCase
+from .maps import MapsUseCase
+from .demand_heatmap import GetDemandHeatmapDataUseCase
 
 __all__ = [
     "GetForecastUseCase",
@@ -14,4 +16,6 @@ __all__ = [
     "GetLocationsUseCase",
     "GetVehiclesUseCase",
     "GetRouteConfigurationsUseCase",
+    "MapsUseCase",
+    "GetDemandHeatmapDataUseCase",
 ]
