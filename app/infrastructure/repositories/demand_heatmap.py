@@ -49,8 +49,13 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
                         # Extract regency codes and names from geojson features
                         for i, feature in enumerate(geojson_data.get('features', []), 1):
                             props = feature.get('properties', {})
-                            # Generate unique regency code: province_code + 2-digit sequential number
-                            region_id = f"{level}{str(i).zfill(2)}"
+                          
+                            region_id = (
+                                props.get('bps_code') or
+                                props.get('kode') or
+                                props.get('KODE') or
+                                f"{level}{str(i).zfill(2)}"
+                            )
                             region_name = (
                                 props.get('name') or
                                 props.get('NAMOBJ') or
