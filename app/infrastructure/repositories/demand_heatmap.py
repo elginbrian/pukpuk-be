@@ -21,6 +21,14 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
         # Get region mappings to determine which geojson file to use
         region_mappings = await self.maps_repo.get_region_mappings()
 
+        if not level.isdigit() and level not in ["pulau", "indonesia"]:
+            filename = region_mappings.get(level.upper())
+            if filename:
+                import re
+                match = re.search(r'id(\d+)_', filename)
+                if match:
+                    level = match.group(1)
+
         # Determine if this is a province level (2 digits) or regency level (4+ digits or name)
         is_province_level = level.isdigit() and len(level) == 2
         is_regency_level = (level.isdigit() and len(level) >= 4) or (not level.isdigit() and level not in ["pulau", "indonesia"])
