@@ -1,0 +1,32 @@
+[
+  {
+    "code": "truck-small",
+    "name": "Small Truck (3-5 tons)",
+    "min_capacity": 3.0,
+    "max_capacity": 5.0,
+    "fuel_consumption": 2.8,
+    "average_speed": 65.0,
+    "co2_factor": 0.35,
+    "type": "truck"
+  },
+  {
+    "code": "truck-medium",
+    "name": "Medium Truck (6-10 tons)",
+    "min_capacity": 6.0,
+    "max_capacity": 10.0,
+    "fuel_consumption": 2.5,
+    "average_speed": 60.0,
+    "co2_factor": 0.4,
+    "type": "truck"
+  },
+  {
+    "code": "truck-large",
+    "name": "Large Truck (11-15 tons)",
+    "min_capacity": 11.0,
+    "max_capacity": 15.0,
+    "fuel_consumption": 2.2,
+    "average_speed": 55.0,
+    "co2_factor": 0.45,
+    "type": "truck"
+  }
+]

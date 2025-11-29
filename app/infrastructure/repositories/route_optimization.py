@@ -112,7 +112,7 @@ class RouteOptimizationRepository(IRouteOptimizationRepository):
         # Adjust for load capacity (higher load = slower speed, higher fuel consumption)
         load_factor = min(1.0 + (request.load_capacity - vehicle.min_capacity) / (vehicle.max_capacity - vehicle.min_capacity), 1.5)
         adjusted_speed = vehicle.average_speed / load_factor
-        adjusted_fuel_consumption = vehicle.fuel_consumption / load_factor
+        adjusted_fuel_consumption = vehicle.fuel_consumption * load_factor
 
         # Fuel price per liter (IDR)
         fuel_price = 15000
@@ -155,7 +155,7 @@ class RouteOptimizationRepository(IRouteOptimizationRepository):
         minutes = int((duration_hours - hours) * 60)
         duration = f"{hours}h {minutes}min"
 
-        fuel_cost = distance * fuel_price / fuel_consumption
+        fuel_cost = distance * fuel_price * fuel_consumption
         toll_cost = distance * toll_cost_per_km
         co2 = distance * co2_factor / load_factor
 
@@ -216,7 +216,7 @@ class RouteOptimizationRepository(IRouteOptimizationRepository):
         # Adjust based on load capacity
         load_factor = min(1.0 + (request.load_capacity - vehicle.min_capacity) / (vehicle.max_capacity - vehicle.min_capacity), 1.5)
         adjusted_speed = vehicle.average_speed / load_factor
-        adjusted_fuel_consumption = vehicle.fuel_consumption / load_factor
+        adjusted_fuel_consumption = vehicle.fuel_consumption * load_factor
 
         fuel_price = 15000
         toll_cost_per_km = 500
@@ -253,7 +253,7 @@ class RouteOptimizationRepository(IRouteOptimizationRepository):
         else:  # greenest
             duration_hours = distance / (speed * 0.9)  # Moderate speed for greenest
 
-        fuel_cost = distance * fuel_price / fuel_consumption
+        fuel_cost = distance * fuel_price * fuel_consumption
         toll_cost = distance * toll_cost_per_km
         co2 = distance * co2_factor / load_factor
 

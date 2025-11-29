@@ -55,7 +55,7 @@ class Vehicle(Document):
     name: str  # e.g., "Small Truck (3-5 tons)"
     min_capacity: float  # minimum load capacity in tons
     max_capacity: float  # maximum load capacity in tons
-    fuel_consumption: float  # km/L
+    fuel_consumption: float  # L/km
     average_speed: float  # km/h
     co2_factor: float  # kg/km
     type: str  # "truck"

@@ -2,6 +2,7 @@ import asyncio
 import random
 import sys
 import os
+import json
 from typing import List, Dict, Any
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from dotenv import load_dotenv
@@ -15,8 +16,10 @@ if __name__ == "__main__":
 
 from ...application.domain.entities.forecasting import ForecastData, Metrics
 from ...application.domain.entities.route_optimization import Location, Vehicle, RouteConfiguration
+from ...application.domain.entities.maps import RegionMappings
 from ...infrastructure.repositories.forecasting import ForecastRepository, MetricsRepository
 from ...infrastructure.repositories.route_optimization import RouteOptimizationRepository
+from ...infrastructure.repositories.maps import MapsRepository
 from ...infrastructure.database.database import init_database, close_database, get_database_sync
 
 class SeedService:
@@ -27,6 +30,7 @@ class SeedService:
         self.forecast_repo = ForecastRepository(database)
         self.metrics_repo = MetricsRepository(database)
         self.route_repo = RouteOptimizationRepository(database)
+        self.maps_repo = MapsRepository(database)
 
     async def seed_forecast_data(self) -> None:
         """Seed forecast data for different crops, regions, and seasons."""
@@ -153,107 +157,9 @@ class SeedService:
 
     async def seed_locations(self) -> None:
         """Seed the database with location data focused on East Java (Jawa Timur)."""
-        locations_data = [
-            # Plants - Pabrik
-            {
-                "code": "plant-surabaya",
-                "name": "Plant Surabaya - Main Factory",
-                "coordinates": [-7.2575, 112.7521],  # Surabaya coordinates
-                "type": "plant",
-                "address": "Jl. Industri No. 1, Surabaya, Jawa Timur",
-                "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png"
-            },
-            {
-                "code": "plant-gresik",
-                "name": "Plant Gresik - Secondary Factory",
-                "coordinates": [-7.1539, 112.6543],  # Gresik coordinates
-                "type": "plant",
-                "address": "Jl. Produksi No. 45, Gresik, Jawa Timur",
-                "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png"
-            },
-            # Warehouses - Gudang
-            {
-                "code": "warehouse-surabaya",
-                "name": "Warehouse Surabaya Central",
-                "coordinates": [-7.2756, 112.6426],  # Surabaya warehouse area
-                "type": "warehouse",
-                "address": "Jl. Gudang No. 100, Surabaya, Jawa Timur",
-                "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png"
-            },
-            {
-                "code": "warehouse-sidoarjo",
-                "name": "Warehouse Sidoarjo",
-                "coordinates": [-7.4558, 112.7183],  # Sidoarjo coordinates
-                "type": "warehouse",
-                "address": "Jl. Distribusi No. 25, Sidoarjo, Jawa Timur",
-                "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png"
-            },
-            {
-                "code": "warehouse-malang",
-                "name": "Warehouse Malang",
-                "coordinates": [-7.9666, 112.6326],  # Malang coordinates
-                "type": "warehouse",
-                "address": "Jl. Logistik No. 50, Malang, Jawa Timur",
-                "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png"
-            },
-            # Kiosks - Kios di berbagai kota di Jawa Timur
-            {
-                "code": "kios-malang",
-                "name": "Kiosk Malang",
-                "coordinates": [-7.9666, 112.6326],
-                "type": "kiosk",
-                "address": "Jl. Raya No. 1, Malang, Jawa Timur",
-                "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png"
-            },
-            {
-                "code": "kios-blitar",
-                "name": "Kiosk Blitar",
-                "coordinates": [-8.0954, 112.1609],  # Blitar coordinates
-                "type": "kiosk",
-                "address": "Jl. Merdeka No. 15, Blitar, Jawa Timur",
-                "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png"
-            },
-            {
-                "code": "kios-kediri",
-                "name": "Kiosk Kediri",
-                "coordinates": [-7.8482, 112.0178],  # Kediri coordinates
-                "type": "kiosk",
-                "address": "Jl. Sudirman No. 30, Kediri, Jawa Timur",
-                "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png"
-            },
-            {
-                "code": "kios-madiun",
-                "name": "Kiosk Madiun",
-                "coordinates": [-7.6298, 111.5239],  # Madiun coordinates
-                "type": "kiosk",
-                "address": "Jl. Pahlawan No. 45, Madiun, Jawa Timur",
-                "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png"
-            },
-            {
-                "code": "kios-jember",
-                "name": "Kiosk Jember",
-                "coordinates": [-8.1845, 113.6681],  # Jember coordinates
-                "type": "kiosk",
-                "address": "Jl. Kalimantan No. 60, Jember, Jawa Timur",
-                "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png"
-            },
-            {
-                "code": "kios-batu",
-                "name": "Kiosk Batu",
-                "coordinates": [-7.8673, 112.5232],  # Batu coordinates
-                "type": "kiosk",
-                "address": "Jl. Panglima Sudirman No. 75, Batu, Jawa Timur",
-                "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png"
-            },
-            {
-                "code": "kios-probolinggo",
-                "name": "Kiosk Probolinggo",
-                "coordinates": [-7.7543, 113.2159],  # Probolinggo coordinates
-                "type": "kiosk",
-                "address": "Jl. Mastrip No. 90, Probolinggo, Jawa Timur",
-                "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png"
-            }
-        ]
+        data_file = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'data', 'locations.json')
+        with open(data_file, 'r') as f:
+            locations_data = json.load(f)
 
         print("Seeding locations (East Java focused)...")
 
@@ -272,38 +178,9 @@ class SeedService:
 
     async def seed_vehicles(self) -> None:
         """Seed the database with vehicle data."""
-        vehicles_data = [
-            {
-                "code": "truck-small",
-                "name": "Small Truck (3-5 tons)",
-                "min_capacity": 3.0,
-                "max_capacity": 5.0,
-                "fuel_consumption": 2.8,
-                "average_speed": 65.0,
-                "co2_factor": 0.35,
-                "type": "truck"
-            },
-            {
-                "code": "truck-medium",
-                "name": "Medium Truck (6-10 tons)",
-                "min_capacity": 6.0,
-                "max_capacity": 10.0,
-                "fuel_consumption": 2.5,
-                "average_speed": 60.0,
-                "co2_factor": 0.4,
-                "type": "truck"
-            },
-            {
-                "code": "truck-large",
-                "name": "Large Truck (11-15 tons)",
-                "min_capacity": 11.0,
-                "max_capacity": 15.0,
-                "fuel_consumption": 2.2,
-                "average_speed": 55.0,
-                "co2_factor": 0.45,
-                "type": "truck"
-            }
-        ]
+        data_file = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'data', 'vehicles.json')
+        with open(data_file, 'r') as f:
+            vehicles_data = json.load(f)
 
         print("Seeding vehicles...")
 
@@ -322,325 +199,11 @@ class SeedService:
 
     async def seed_route_configurations(self) -> None:
         """Seed the database with comprehensive route configuration data for East Java."""
-        route_configs_data = [
-            # Routes from plant-surabaya to all destinations
-            {
-                "origin": "plant-surabaya",
-                "destination": "kios-malang",
-                "vehicle_type": "truck-small",
-                "load_capacity": 4.0,
-                "fastest_distance": 95,
-                "cheapest_distance": 105,
-                "greenest_distance": 100,
-                "fastest_path": ["plant-surabaya", "kios-malang"],
-                "cheapest_path": ["plant-surabaya", "warehouse-surabaya", "kios-malang"],
-                "greenest_path": ["plant-surabaya", "warehouse-sidoarjo", "kios-malang"]
-            },
-            {
-                "origin": "plant-surabaya",
-                "destination": "kios-malang",
-                "vehicle_type": "truck-medium",
-                "load_capacity": 8.0,
-                "fastest_distance": 95,
-                "cheapest_distance": 105,
-                "greenest_distance": 100,
-                "fastest_path": ["plant-surabaya", "kios-malang"],
-                "cheapest_path": ["plant-surabaya", "warehouse-surabaya", "kios-malang"],
-                "greenest_path": ["plant-surabaya", "warehouse-sidoarjo", "kios-malang"]
-            },
-            {
-                "origin": "plant-surabaya",
-                "destination": "kios-malang",
-                "vehicle_type": "truck-large",
-                "load_capacity": 12.0,
-                "fastest_distance": 95,
-                "cheapest_distance": 105,
-                "greenest_distance": 100,
-                "fastest_path": ["plant-surabaya", "kios-malang"],
-                "cheapest_path": ["plant-surabaya", "warehouse-surabaya", "kios-malang"],
-                "greenest_path": ["plant-surabaya", "warehouse-sidoarjo", "kios-malang"]
-            },
-            {
-                "origin": "plant-surabaya",
-                "destination": "kios-blitar",
-                "vehicle_type": "truck-small",
-                "load_capacity": 4.0,
-                "fastest_distance": 170,
-                "cheapest_distance": 185,
-                "greenest_distance": 175,
-                "fastest_path": ["plant-surabaya", "warehouse-malang", "kios-blitar"],
-                "cheapest_path": ["plant-surabaya", "warehouse-sidoarjo", "kios-kediri", "kios-blitar"],
-                "greenest_path": ["plant-surabaya", "warehouse-malang", "kios-blitar"]
-            },
-            {
-                "origin": "plant-surabaya",
-                "destination": "kios-blitar",
-                "vehicle_type": "truck-medium",
-                "load_capacity": 8.0,
-                "fastest_distance": 170,
-                "cheapest_distance": 185,
-                "greenest_distance": 175,
-                "fastest_path": ["plant-surabaya", "warehouse-malang", "kios-blitar"],
-                "cheapest_path": ["plant-surabaya", "warehouse-sidoarjo", "kios-kediri", "kios-blitar"],
-                "greenest_path": ["plant-surabaya", "warehouse-malang", "kios-blitar"]
-            },
-            {
-                "origin": "plant-surabaya",
-                "destination": "kios-blitar",
-                "vehicle_type": "truck-large",
-                "load_capacity": 12.0,
-                "fastest_distance": 170,
-                "cheapest_distance": 185,
-                "greenest_distance": 175,
-                "fastest_path": ["plant-surabaya", "warehouse-malang", "kios-blitar"],
-                "cheapest_path": ["plant-surabaya", "warehouse-sidoarjo", "kios-kediri", "kios-blitar"],
-                "greenest_path": ["plant-surabaya", "warehouse-malang", "kios-blitar"]
-            },
-            {
-                "origin": "plant-surabaya",
-                "destination": "kios-kediri",
-                "vehicle_type": "truck-small",
-                "load_capacity": 4.0,
-                "fastest_distance": 140,
-                "cheapest_distance": 155,
-                "greenest_distance": 145,
-                "fastest_path": ["plant-surabaya", "warehouse-malang", "kios-kediri"],
-                "cheapest_path": ["plant-surabaya", "warehouse-sidoarjo", "kios-kediri"],
-                "greenest_path": ["plant-surabaya", "warehouse-malang", "kios-kediri"]
-            },
-            {
-                "origin": "plant-surabaya",
-                "destination": "kios-kediri",
-                "vehicle_type": "truck-medium",
-                "load_capacity": 8.0,
-                "fastest_distance": 140,
-                "cheapest_distance": 155,
-                "greenest_distance": 145,
-                "fastest_path": ["plant-surabaya", "warehouse-malang", "kios-kediri"],
-                "cheapest_path": ["plant-surabaya", "warehouse-sidoarjo", "kios-kediri"],
-                "greenest_path": ["plant-surabaya", "warehouse-malang", "kios-kediri"]
-            },
-            {
-                "origin": "plant-surabaya",
-                "destination": "kios-madiun",
-                "vehicle_type": "truck-small",
-                "load_capacity": 4.0,
-                "fastest_distance": 200,
-                "cheapest_distance": 220,
-                "greenest_distance": 205,
-                "fastest_path": ["plant-surabaya", "warehouse-surabaya", "kios-madiun"],
-                "cheapest_path": ["plant-surabaya", "warehouse-sidoarjo", "kios-kediri", "kios-madiun"],
-                "greenest_path": ["plant-surabaya", "warehouse-surabaya", "kios-madiun"]
-            },
-            {
-                "origin": "plant-surabaya",
-                "destination": "kios-madiun",
-                "vehicle_type": "truck-medium",
-                "load_capacity": 8.0,
-                "fastest_distance": 200,
-                "cheapest_distance": 220,
-                "greenest_distance": 205,
-                "fastest_path": ["plant-surabaya", "warehouse-surabaya", "kios-madiun"],
-                "cheapest_path": ["plant-surabaya", "warehouse-sidoarjo", "kios-kediri", "kios-madiun"],
-                "greenest_path": ["plant-surabaya", "warehouse-surabaya", "kios-madiun"]
-            },
-            {
-                "origin": "plant-surabaya",
-                "destination": "kios-jember",
-                "vehicle_type": "truck-small",
-                "load_capacity": 4.0,
-                "fastest_distance": 220,
-                "cheapest_distance": 240,
-                "greenest_distance": 230,
-                "fastest_path": ["plant-surabaya", "warehouse-sidoarjo", "kios-probolinggo", "kios-jember"],
-                "cheapest_path": ["plant-surabaya", "warehouse-malang", "kios-blitar", "kios-jember"],
-                "greenest_path": ["plant-surabaya", "warehouse-sidoarjo", "kios-jember"]
-            },
-            {
-                "origin": "plant-surabaya",
-                "destination": "kios-jember",
-                "vehicle_type": "truck-medium",
-                "load_capacity": 8.0,
-                "fastest_distance": 220,
-                "cheapest_distance": 240,
-                "greenest_distance": 230,
-                "fastest_path": ["plant-surabaya", "warehouse-sidoarjo", "kios-probolinggo", "kios-jember"],
-                "cheapest_path": ["plant-surabaya", "warehouse-malang", "kios-blitar", "kios-jember"],
-                "greenest_path": ["plant-surabaya", "warehouse-sidoarjo", "kios-jember"]
-            },
-            {
-                "origin": "plant-surabaya",
-                "destination": "kios-jember",
-                "vehicle_type": "truck-large",
-                "load_capacity": 12.0,
-                "fastest_distance": 220,
-                "cheapest_distance": 240,
-                "greenest_distance": 230,
-                "fastest_path": ["plant-surabaya", "warehouse-sidoarjo", "kios-probolinggo", "kios-jember"],
-                "cheapest_path": ["plant-surabaya", "warehouse-malang", "kios-blitar", "kios-jember"],
-                "greenest_path": ["plant-surabaya", "warehouse-sidoarjo", "kios-jember"]
-            },
-            {
-                "origin": "plant-surabaya",
-                "destination": "kios-batu",
-                "vehicle_type": "truck-small",
-                "load_capacity": 4.0,
-                "fastest_distance": 110,
-                "cheapest_distance": 125,
-                "greenest_distance": 115,
-                "fastest_path": ["plant-surabaya", "warehouse-malang", "kios-batu"],
-                "cheapest_path": ["plant-surabaya", "warehouse-sidoarjo", "warehouse-malang", "kios-batu"],
-                "greenest_path": ["plant-surabaya", "warehouse-malang", "kios-batu"]
-            },
-            {
-                "origin": "plant-surabaya",
-                "destination": "kios-batu",
-                "vehicle_type": "truck-medium",
-                "load_capacity": 8.0,
-                "fastest_distance": 110,
-                "cheapest_distance": 125,
-                "greenest_distance": 115,
-                "fastest_path": ["plant-surabaya", "warehouse-malang", "kios-batu"],
-                "cheapest_path": ["plant-surabaya", "warehouse-sidoarjo", "warehouse-malang", "kios-batu"],
-                "greenest_path": ["plant-surabaya", "warehouse-malang", "kios-batu"]
-            },
-            {
-                "origin": "plant-surabaya",
-                "destination": "kios-probolinggo",
-                "vehicle_type": "truck-small",
-                "load_capacity": 4.0,
-                "fastest_distance": 100,
-                "cheapest_distance": 115,
-                "greenest_distance": 105,
-                "fastest_path": ["plant-surabaya", "kios-probolinggo"],
-                "cheapest_path": ["plant-surabaya", "warehouse-sidoarjo", "kios-probolinggo"],
-                "greenest_path": ["plant-surabaya", "kios-probolinggo"]
-            },
-            {
-                "origin": "plant-surabaya",
-                "destination": "kios-probolinggo",
-                "vehicle_type": "truck-medium",
-                "load_capacity": 8.0,
-                "fastest_distance": 100,
-                "cheapest_distance": 115,
-                "greenest_distance": 105,
-                "fastest_path": ["plant-surabaya", "kios-probolinggo"],
-                "cheapest_path": ["plant-surabaya", "warehouse-sidoarjo", "kios-probolinggo"],
-                "greenest_path": ["plant-surabaya", "kios-probolinggo"]
-            },
+        data_file = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'data', 'route_configurations.json')
+        with open(data_file, 'r') as f:
+            route_configs_data = json.load(f)
 
-            # Routes from plant-gresik
-            {
-                "origin": "plant-gresik",
-                "destination": "kios-malang",
-                "vehicle_type": "truck-small",
-                "load_capacity": 4.0,
-                "fastest_distance": 100,
-                "cheapest_distance": 115,
-                "greenest_distance": 105,
-                "fastest_path": ["plant-gresik", "warehouse-surabaya", "kios-malang"],
-                "cheapest_path": ["plant-gresik", "warehouse-sidoarjo", "kios-malang"],
-                "greenest_path": ["plant-gresik", "warehouse-surabaya", "kios-malang"]
-            },
-            {
-                "origin": "plant-gresik",
-                "destination": "kios-malang",
-                "vehicle_type": "truck-medium",
-                "load_capacity": 8.0,
-                "fastest_distance": 100,
-                "cheapest_distance": 115,
-                "greenest_distance": 105,
-                "fastest_path": ["plant-gresik", "warehouse-surabaya", "kios-malang"],
-                "cheapest_path": ["plant-gresik", "warehouse-sidoarjo", "kios-malang"],
-                "greenest_path": ["plant-gresik", "warehouse-surabaya", "kios-malang"]
-            },
-            {
-                "origin": "plant-gresik",
-                "destination": "kios-madiun",
-                "vehicle_type": "truck-medium",
-                "load_capacity": 8.0,
-                "fastest_distance": 180,
-                "cheapest_distance": 195,
-                "greenest_distance": 185,
-                "fastest_path": ["plant-gresik", "warehouse-surabaya", "kios-madiun"],
-                "cheapest_path": ["plant-gresik", "warehouse-sidoarjo", "kios-kediri", "kios-madiun"],
-                "greenest_path": ["plant-gresik", "warehouse-surabaya", "kios-madiun"]
-            },
-            {
-                "origin": "plant-gresik",
-                "destination": "kios-batu",
-                "vehicle_type": "truck-small",
-                "load_capacity": 4.0,
-                "fastest_distance": 120,
-                "cheapest_distance": 135,
-                "greenest_distance": 125,
-                "fastest_path": ["plant-gresik", "warehouse-malang", "kios-batu"],
-                "cheapest_path": ["plant-gresik", "warehouse-sidoarjo", "warehouse-malang", "kios-batu"],
-                "greenest_path": ["plant-gresik", "warehouse-malang", "kios-batu"]
-            },
-
-            # Routes from warehouses
-            {
-                "origin": "warehouse-surabaya",
-                "destination": "kios-malang",
-                "vehicle_type": "truck-small",
-                "load_capacity": 4.0,
-                "fastest_distance": 90,
-                "cheapest_distance": 100,
-                "greenest_distance": 95,
-                "fastest_path": ["warehouse-surabaya", "kios-malang"],
-                "cheapest_path": ["warehouse-surabaya", "warehouse-sidoarjo", "kios-malang"],
-                "greenest_path": ["warehouse-surabaya", "kios-malang"]
-            },
-            {
-                "origin": "warehouse-surabaya",
-                "destination": "kios-probolinggo",
-                "vehicle_type": "truck-small",
-                "load_capacity": 4.0,
-                "fastest_distance": 110,
-                "cheapest_distance": 125,
-                "greenest_distance": 115,
-                "fastest_path": ["warehouse-surabaya", "kios-probolinggo"],
-                "cheapest_path": ["warehouse-surabaya", "warehouse-sidoarjo", "kios-probolinggo"],
-                "greenest_path": ["warehouse-surabaya", "kios-probolinggo"]
-            },
-            {
-                "origin": "warehouse-malang",
-                "destination": "kios-blitar",
-                "vehicle_type": "truck-medium",
-                "load_capacity": 8.0,
-                "fastest_distance": 75,
-                "cheapest_distance": 85,
-                "greenest_distance": 78,
-                "fastest_path": ["warehouse-malang", "kios-blitar"],
-                "cheapest_path": ["warehouse-malang", "kios-kediri", "kios-blitar"],
-                "greenest_path": ["warehouse-malang", "kios-blitar"]
-            },
-            {
-                "origin": "warehouse-malang",
-                "destination": "kios-batu",
-                "vehicle_type": "truck-small",
-                "load_capacity": 4.0,
-                "fastest_distance": 25,
-                "cheapest_distance": 30,
-                "greenest_distance": 26,
-                "fastest_path": ["warehouse-malang", "kios-batu"],
-                "cheapest_path": ["warehouse-malang", "kios-batu"],
-                "greenest_path": ["warehouse-malang", "kios-batu"]
-            },
-            {
-                "origin": "warehouse-sidoarjo",
-                "destination": "kios-malang",
-                "vehicle_type": "truck-medium",
-                "load_capacity": 8.0,
-                "fastest_distance": 85,
-                "cheapest_distance": 95,
-                "greenest_distance": 88,
-                "fastest_path": ["warehouse-sidoarjo", "kios-malang"],
-                "cheapest_path": ["warehouse-sidoarjo", "warehouse-malang", "kios-malang"],
-                "greenest_path": ["warehouse-sidoarjo", "kios-malang"]
-            }
-        ]
+        print("Seeding route configurations...")
 
         for config_data in route_configs_data:
             # Check if configuration already exists
@@ -661,6 +224,24 @@ class SeedService:
 
         print("Route configurations seeded successfully!")
 
+    async def seed_region_mappings(self) -> None:
+        """Seed the database with region to geojson filename mappings."""
+        print("Seeding region mappings...")
+
+        # Check if already seeded
+        existing = await RegionMappings.find().first_or_none()
+        if existing:
+            print("Region mappings already exist, skipping...")
+            return
+
+        data_file = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'data', 'region_mappings.json')
+        with open(data_file, 'r') as f:
+            mappings = json.load(f)
+
+        region_mappings = RegionMappings(mappings=mappings)
+        await region_mappings.insert()
+        print("Region mappings seeded successfully!")
+
     async def seed_all_data(self) -> None:
         """Seed all data types."""
         print("Starting complete data seeding...")
@@ -669,6 +250,7 @@ class SeedService:
         await self.seed_locations()
         await self.seed_vehicles()
         await self.seed_route_configurations()
+        await self.seed_region_mappings()
 
         print("All data seeding completed successfully!")
 

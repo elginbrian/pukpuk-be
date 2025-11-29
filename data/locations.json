@@ -1,0 +1,98 @@
+[
+  {
+    "code": "plant-surabaya",
+    "name": "Plant Surabaya - Main Factory",
+    "coordinates": [-7.2575, 112.7521],
+    "type": "plant",
+    "address": "Jl. Industri No. 1, Surabaya, Jawa Timur",
+    "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png"
+  },
+  {
+    "code": "plant-gresik",
+    "name": "Plant Gresik - Secondary Factory",
+    "coordinates": [-7.1539, 112.6543],
+    "type": "plant",
+    "address": "Jl. Produksi No. 45, Gresik, Jawa Timur",
+    "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png"
+  },
+  {
+    "code": "warehouse-surabaya",
+    "name": "Warehouse Surabaya Central",
+    "coordinates": [-7.2756, 112.6426],
+    "type": "warehouse",
+    "address": "Jl. Gudang No. 100, Surabaya, Jawa Timur",
+    "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png"
+  },
+  {
+    "code": "warehouse-sidoarjo",
+    "name": "Warehouse Sidoarjo",
+    "coordinates": [-7.4558, 112.7183],
+    "type": "warehouse",
+    "address": "Jl. Distribusi No. 25, Sidoarjo, Jawa Timur",
+    "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png"
+  },
+  {
+    "code": "warehouse-malang",
+    "name": "Warehouse Malang",
+    "coordinates": [-7.9666, 112.6326],
+    "type": "warehouse",
+    "address": "Jl. Logistik No. 50, Malang, Jawa Timur",
+    "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png"
+  },
+  {
+    "code": "kios-malang",
+    "name": "Kiosk Malang",
+    "coordinates": [-7.9666, 112.6326],
+    "type": "kiosk",
+    "address": "Jl. Raya No. 1, Malang, Jawa Timur",
+    "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png"
+  },
+  {
+    "code": "kios-blitar",
+    "name": "Kiosk Blitar",
+    "coordinates": [-8.0954, 112.1609],
+    "type": "kiosk",
+    "address": "Jl. Merdeka No. 15, Blitar, Jawa Timur",
+    "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png"
+  },
+  {
+    "code": "kios-kediri",
+    "name": "Kiosk Kediri",
+    "coordinates": [-7.8482, 112.0178],
+    "type": "kiosk",
+    "address": "Jl. Sudirman No. 30, Kediri, Jawa Timur",
+    "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png"
+  },
+  {
+    "code": "kios-madiun",
+    "name": "Kiosk Madiun",
+    "coordinates": [-7.6298, 111.5239],
+    "type": "kiosk",
+    "address": "Jl. Pahlawan No. 45, Madiun, Jawa Timur",
+    "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png"
+  },
+  {
+    "code": "kios-jember",
+    "name": "Kiosk Jember",
+    "coordinates": [-8.1845, 113.6681],
+    "type": "kiosk",
+    "address": "Jl. Kalimantan No. 60, Jember, Jawa Timur",
+    "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png"
+  },
+  {
+    "code": "kios-batu",
+    "name": "Kiosk Batu",
+    "coordinates": [-7.8673, 112.5232],
+    "type": "kiosk",
+    "address": "Jl. Panglima Sudirman No. 75, Batu, Jawa Timur",
+    "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png"
+  },
+  {
+    "code": "kios-probolinggo",
+    "name": "Kiosk Probolinggo",
+    "coordinates": [-7.7543, 113.2159],
+    "type": "kiosk",
+    "address": "Jl. Mastrip No. 90, Probolinggo, Jawa Timur",
+    "icon_url": "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png"
+  }
+]
