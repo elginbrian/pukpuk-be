@@ -6,6 +6,7 @@ from .application.handler.routes.forecasting import router as forecasting_router
 from .application.handler.routes.ai_insight import router as ai_insight_router
 from .application.handler.routes.route_optimization import router as route_optimization_router
 from .application.handler.routes.maps import router as maps_router
+from .application.handler.routes.demand_heatmap import router as demand_heatmap_router
 
 # Initialize settings
 settings = Settings()
@@ -28,7 +29,7 @@ app.add_middleware(
 app.include_router(forecasting_router)
 app.include_router(ai_insight_router)
 app.include_router(route_optimization_router)
-app.include_router(maps_router, prefix="/demand-heatmap")
+app.include_router(demand_heatmap_router)
 
 @app.on_event("startup")
 async def startup_event():

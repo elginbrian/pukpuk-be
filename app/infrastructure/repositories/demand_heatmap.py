@@ -1,309 +1,193 @@
 import json
 import os
 import random
-from typing import Dict, List
+import traceback
+import re
+import pandas as pd
+from catboost import CatBoostRegressor
+from pathlib import Path
+from typing import Dict, List, Any
 from motor.motor_asyncio import AsyncIOMotorDatabase
-
 from ...application.domain.interfaces.demand_heatmap import IDemandHeatmapRepository
 from ...application.domain.entities.demand_heatmap import MapAnalyticsData, RegionalInsight
 from .maps import MapsRepository
+from ...application.constants import PROVINCE_MAP
 
 class DemandHeatmapRepository(IDemandHeatmapRepository):
-    """Repository for demand heatmap operations."""
-
     def __init__(self, database: AsyncIOMotorDatabase, maps_repo: MapsRepository):
         self.database = database
         self.maps_repo = maps_repo
 
+        # Setup Path
+        try:
+            self.BASE_DIR = Path(__file__).resolve().parents[4]
+            self.MAPS_DIR = self.BASE_DIR / "data" / "maps"
+            self.MODEL_PATH = self.BASE_DIR / "ai_engine" / "pukpuk_demand_v1.cbm"
+        except:
+            self.MAPS_DIR = Path("data/maps").resolve()
+            self.MODEL_PATH = Path("pukpuk_demand_v1.cbm").resolve()
+
+        # Load AI Model
+        self.model = None
+        if self.MODEL_PATH.exists():
+            try:
+                self.model = CatBoostRegressor()
+                self.model.load_model(str(self.MODEL_PATH))
+                print(f"✅ [AI] Model Loaded")
+            except Exception as e:
+                print(f"❌ [AI] Error: {e}")
+
+        # Build Name Lookup Table
+        self.global_name_map = {}
+        self._build_lookup_tables()
+
+    def _build_lookup_tables(self):
+        if self.MAPS_DIR.exists():
+            for file_path in self.MAPS_DIR.glob("id*.geojson"):
+                filename = file_path.stem
+                match_id = re.search(r'id(\d+)', filename)
+                if match_id:
+                    rid = match_id.group(1)
+                    raw_name = re.sub(r'id\d+[_]?', '', filename).replace('_', ' ').upper()
+                    self.global_name_map[raw_name] = rid
+                    self.global_name_map[raw_name.replace("KABUPATEN ", "")] = rid
+                    self.global_name_map[raw_name.replace("KOTA ", "")] = rid
+
     async def get_demand_heatmap_data(self, level: str, mode: str, layer: str) -> tuple[Dict[str, MapAnalyticsData], List[RegionalInsight]]:
-        """Get demand heatmap data including map analytics and regional insights."""
+        try:
+            filename = None
+            target_level_type = "unknown"
+            child_ids = []
+            child_names = []
+            map_found = False
 
-        # Get region mappings to determine which geojson file to use
-        region_mappings = await self.maps_repo.get_region_mappings()
-
-        if not level.isdigit() and level not in ["pulau", "indonesia"]:
-            filename = region_mappings.get(level.upper())
-            if filename:
-                import re
-                match = re.search(r'id(\d+)_', filename)
-                if match:
-                    level = match.group(1)
-
-        # Determine if this is a province level (2 digits) or regency level (4+ digits or name)
-        is_province_level = level.isdigit() and len(level) == 2
-        is_regency_level = (level.isdigit() and len(level) >= 4) or (not level.isdigit() and level not in ["pulau", "indonesia"])
-
-        # For province level, get regency data
-        # For regency level, get district/sub-district data
-        if is_province_level:
-            # Province level - get regencies within this province
-            filename = region_mappings.get(level, f"province_{level}")
-            if not filename or not os.path.exists(os.path.join("data", "maps", f"{filename}.geojson")):
-                # Fallback: generate mock regency codes for this province
-                province_prefix = level
-                region_codes = [f"{province_prefix}{str(i).zfill(2)}" for i in range(1, 15)]  # Mock 14 regencies
-                region_names = [f"Kabupaten/Kota {i}" for i in range(1, 15)]
+            # 1. Tentukan File
+            if level in ["indonesia", "pulau"]:
+                filename = "indonesia.geojson"
+                target_level_type = "province"
+                map_found = True
+            elif level in PROVINCE_MAP:
+                filename = f"{PROVINCE_MAP[level]}.geojson"
+                target_level_type = "regency"
+                map_found = True
             else:
-                # Load geojson data to get actual regency codes
-                geojson_path = os.path.join("data", "maps", f"{filename}.geojson")
-                region_codes = []
-                region_names = []
+                target_level_type = "district"
+                if self.MAPS_DIR.exists():
+                    files = list(self.MAPS_DIR.glob(f"id{level}_*.geojson"))
+                    if files:
+                        filename = files[0].name
+                        map_found = True
 
-                if os.path.exists(geojson_path):
+            # 2. Baca File & Ekstrak Data
+            if map_found and filename:
+                file_path = self.MAPS_DIR / filename
+                if file_path.exists():
                     try:
-                        with open(geojson_path, 'r', encoding='utf-8') as f:
-                            geojson_data = json.load(f)
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            geo_data = json.load(f)
 
-                        # Extract regency codes and names from geojson features
-                        for i, feature in enumerate(geojson_data.get('features', []), 1):
-                            props = feature.get('properties', {})
-                          
-                            region_id = (
-                                props.get('bps_code') or
-                                props.get('kode') or
-                                props.get('KODE') or
-                                f"{level}{str(i).zfill(2)}"
-                            )
-                            region_name = (
-                                props.get('name') or
-                                props.get('NAMOBJ') or
-                                props.get('NAME_2') or
-                                props.get('district') or
-                                props.get('regency_name')
-                            )
-                            if region_name:
-                                region_codes.append(str(region_id).replace("id", ""))
-                                region_names.append(region_name)
+                        for feature in geo_data.get("features", []):
+                            p = feature.get("properties", {})
+                            cid = None
+                            cname = None
+
+                            # A. Cari Nama
+                            name_keys = ["district", "kecamatan", "nm_kec", "regency", "kabupaten", "nm_kab", "province", "provinsi", "name", "NAME", "NAMOBJ"]
+                            for k in name_keys:
+                                if p.get(k):
+                                    cname = str(p.get(k))
+                                    break
+                            
+                            clean_name = "UNKNOWN"
+                            if cname:
+                                clean_name = cname.upper().replace("KABUPATEN ", "").replace("KOTA ", "").replace("KECAMATAN ", "").strip()
+
+                            # B. Cari ID (Reverse Lookup jika ID kosong)
+                            id_keys = ["district_code", "regency_code", "prov_id", "bps_code", "kode", "id", "ID", "kab_kode", "kec_kode"]
+                            for k in id_keys:
+                                if p.get(k):
+                                    cid = str(p.get(k))
+                                    break
+
+                            if not cid and target_level_type == "regency":
+                                if clean_name in self.global_name_map:
+                                    cid = self.global_name_map[clean_name]
+
+                            if cid:
+                                clean_id = str(cid).replace("id", "")
+                                if clean_id != level:
+                                    child_ids.append(clean_id)
+                                    child_names.append(clean_name)
+
                     except Exception as e:
-                        print(f"Error reading geojson {geojson_path}: {e}")
-                        # Fallback to mock data
-                        province_prefix = level
-                        region_codes = [f"{province_prefix}{str(i).zfill(2)}" for i in range(1, 15)]
-                        region_names = [f"Kabupaten/Kota {i}" for i in range(1, 15)]
+                        print(f"❌ Error reading {filename}: {e}")
 
-                maps_dir = os.path.join("data", "maps")
-                if os.path.exists(maps_dir):
-                    for file in os.listdir(maps_dir):
-                        if file.startswith(f"id{level}7") and "_kota_" in file and file.endswith(".geojson"):
-                            kota_path = os.path.join(maps_dir, file)
-                            try:
-                                with open(kota_path, 'r', encoding='utf-8') as f:
-                                    kota_data = json.load(f)
-                               
-                                if kota_data.get('features'):
-                                    props = kota_data['features'][0].get('properties', {})
-                                    regency_code = props.get('regency_code', file.split('_')[0].replace('id', ''))
-                                    regency_name = props.get('regency', file.split('_kota_')[1].replace('.geojson', '').replace('_', ' ').title())
-                                    region_codes.append(str(regency_code).replace("id", ""))
-                                    region_names.append(regency_name)
-                            except Exception as e:
-                                print(f"Error reading kota geojson {kota_path}: {e}")
-        elif is_regency_level:
-           
-            filename = region_mappings.get(level)
-            if not filename:
-                for name, fname in region_mappings.items():
-                    if fname.startswith(f"id{level}_"):
-                        filename = fname
-                        break
-            if not filename:
-                filename = f"id{level}_unknown"
+            # 3. Fallback
+            if not child_ids:
+                if level in ["indonesia", "pulau"]:
+                    for k, v in PROVINCE_MAP.items():
+                        child_ids.append(k)
+                        child_names.append(v.upper())
+                else:
+                    for i in range(1, 8):
+                        child_ids.append(f"{level}{i:02d}")
+                        child_names.append(f"AREA {i}")
 
-            geojson_path = os.path.join("data", "maps", f"{filename}.geojson")
-            region_codes = []
-            region_names = []
+            # 4. AI Prediction & Coloring
+            map_analytics = {}
+            regional_insights = []
+            inputs = []
+            
+            # Tentukan Threshold berdasarkan level
+            threshold = 200
+            if target_level_type == "province": threshold = 5000
+            elif target_level_type == "regency": threshold = 2000
 
-            if os.path.exists(geojson_path):
+            for rid in child_ids:
+                simulated_area = random.uniform(threshold * 0.1, threshold * 2.5)
+                inputs.append([rid, random.uniform(50, 400), random.uniform(0.1, 0.9), simulated_area, 2500])
+
+            preds = []
+            if self.model:
                 try:
-                    with open(geojson_path, 'r', encoding='utf-8') as f:
-                        geojson_data = json.load(f)
-
-                    # Extract unique district names from geojson features
-                    district_names = set()
-                    for feature in geojson_data.get('features', []):
-                        props = feature.get('properties', {})
-                        district_name = props.get('district')
-                        if district_name:
-                            district_names.add(district_name)
-
-                    # Convert to sorted list and create region codes
-                    region_names = sorted(list(district_names))
-                    region_codes = [f"{level}_kec_{i}" for i in range(1, len(region_names) + 1)]
-                except Exception as e:
-                    print(f"Error reading geojson {geojson_path}: {e}")
-                    # Fallback to mock data
-                    region_codes = [f"{level}_kec_{i}" for i in range(1, 21)]
-                    region_names = [f"Kecamatan {i}" for i in range(1, 21)]
+                    df = pd.DataFrame(inputs, columns=['region_id', 'rainfall', 'ndvi', 'land_area', 'price'])
+                    preds = self.model.predict(df)
+                except:
+                    preds = [inp[3] for inp in inputs]
             else:
-                # Fallback if geojson doesn't exist
-                region_codes = [f"{level}_kec_{i}" for i in range(1, 21)]
-                region_names = [f"Kecamatan {i}" for i in range(1, 21)]
-        else:
-            # National level - provinces
-            filename = "indonesia"  # Always use indonesia.geojson for national level
-            geojson_path = os.path.join("data", "maps", f"{filename}.geojson")
-            region_codes = []
-            region_names = []
+                preds = [inp[3] for inp in inputs]
 
-            if os.path.exists(geojson_path):
-                try:
-                    with open(geojson_path, 'r', encoding='utf-8') as f:
-                        geojson_data = json.load(f)
+            # 5. Mapping Result
+            for i, rid in enumerate(child_ids):
+                val = float(preds[i])
+                if val < 0: val = 0
+                if mode == "forecast": val *= 1.1
 
-                    # Extract province codes and names from geojson features
-                    for feature in geojson_data.get('features', []):
-                        props = feature.get('properties', {})
-                        region_id = (
-                            props.get('prov_id') or
-                            props.get('ID') or
-                            props.get('id') or
-                            props.get('KODE') or
-                            props.get('kode') or
-                            props.get('bps_code')
-                        )
-                        region_name = (
-                            props.get('prov_name') or
-                            props.get('NAME_1') or
-                            props.get('provinsi') or
-                            props.get('name')
-                        )
-                        if region_id:
-                            region_codes.append(str(region_id))
-                            region_names.append(region_name or f"Provinsi {region_id}")
-                except Exception as e:
-                    print(f"Error reading geojson {geojson_path}: {e}")
+                # Status Logic
+                ratio = val / threshold
+                if ratio > 1.4: status = "critical"
+                elif ratio > 0.9: status = "warning"
+                elif ratio > 0.3: status = "safe"
+                else: status = "overstock"
 
-            # If no regions found in geojson, use fallback province codes
-            if not region_codes:
-                region_codes = ["11", "12", "13", "14", "15", "16", "17", "18", "19", "21", "31", "32", "33", "34", "35", "36", "51", "52", "53", "61", "62", "63", "64", "65", "71", "72", "73", "74", "75", "76", "81", "82", "91", "94"]
-                region_names = ["ACEH", "SUMATERA UTARA", "SUMATERA BARAT", "RIAU", "JAMBI", "SUMATERA SELATAN", "BENGKULU", "LAMPUNG", "KEPULAUAN BANGKA BELITUNG", "KEPULAUAN RIAU", "DKI JAKARTA", "JAWA BARAT", "JAWA TENGAH", "DAERAH ISTIMEWA YOGYAKARTA", "JAWA TIMUR", "BANTEN", "BALI", "NUSA TENGGARA BARAT", "NUSA TENGGARA TIMUR", "KALIMANTAN BARAT", "KALIMANTAN TENGAH", "KALIMANTAN SELATAN", "KALIMANTAN TIMUR", "KALIMANTAN UTARA", "SULAWESI UTARA", "SULAWESI TENGAH", "SULAWESI SELATAN", "SULAWESI TENGGARA", "GORONTALO", "SULAWESI BARAT", "MALUKU", "MALUKU UTARA", "PAPUA BARAT", "PAPUA SELATAN"]
+                map_analytics[rid] = MapAnalyticsData(
+                    status=status,
+                    value=round(val, 1),
+                    label=f"{status.title()} ({int(val)} T)"
+                )
 
-        # Generate map analytics data
-        map_analytics = {}
-        region_data = []
+                if i < 8:
+                    regional_insights.append(RegionalInsight(
+                        name=child_names[i], code=rid, demand=f"{int(val)} Ton",
+                        confidence=random.randint(85, 99), trend="stable",
+                        risk="high" if status == "critical" else ("medium" if status == "warning" else "low")
+                    ))
+            
+            # Sort by Risk (High first)
+            regional_insights.sort(key=lambda x: 0 if x.risk == "high" else 1 if x.risk == "medium" else 2)
+            
+            return map_analytics, regional_insights[:4]
 
-        for i, region_code in enumerate(region_codes):
-          
-            if not is_province_level and not is_regency_level:
-                base_value = random.randint(1000, 10000)
-                unit = "ton"
-            elif is_province_level:
-                base_value = random.randint(100, 1000)  
-                unit = "ton"
-            else:
-                base_value = random.randint(10, 500) 
-                unit = "kg"
-
-            # Apply some logic based on mode and layer
-            if mode == "forecast":
-                # Add some forecast-specific logic
-                risk_factor = random.random()
-                if risk_factor < 0.15:
-                    status = "critical"
-                    label = f"Defisit (Urgent) - {round(base_value * 0.3, 1)} {unit}"
-                    # Critical regions have lower values
-                    value = base_value * 0.3
-                elif risk_factor < 0.35:
-                    status = "warning"
-                    label = f"Menipis (Waspada) - {round(base_value * 0.6, 1)} {unit}"
-                    value = base_value * 0.6
-                elif risk_factor > 0.85:
-                    status = "overstock"
-                    label = f"Overstock (Bahaya) - {round(base_value * 1.5, 1)} {unit}"
-                    value = base_value * 1.5
-                else:
-                    status = "safe"
-                    label = f"Aman - {round(base_value, 1)} {unit}"
-                    value = base_value
-            else:  # live mode
-                # Adjust threshold based on geographical level
-                if not is_province_level and not is_regency_level:
-                    # National level - provinces
-                    threshold = 3000  # 3000 tons
-                elif is_province_level:
-                    # Province level - regencies
-                    threshold = 300   # 300 tons
-                else:
-                    # Regency level - districts
-                    threshold = 50    # 50 kg
-
-                if base_value < threshold:
-                    status = "warning"
-                    label = f"Restock Needed - {round(base_value, 1)} {unit}"
-                else:
-                    status = "safe"
-                    label = f"Stock Healthy - {round(base_value, 1)} {unit}"
-                value = base_value
-
-            region_name = region_names[i] if i < len(region_names) else f"Region {region_code}"
-
-            map_analytics[region_code] = MapAnalyticsData(
-                status=status,
-                value=round(value, 1),
-                label=label
-            )
-
-            # Store region data for sorting
-            region_data.append({
-                'code': region_code,
-                'name': region_name,
-                'value': round(value, 1),
-                'status': status,
-                'label': label
-            })
-
-        # Add some specific overrides for known regions (like in the original mock)
-        if level == "35":  # Special case for East Java province
-            map_analytics["3573"] = MapAnalyticsData(status="critical", value=120, label="Lonjakan Permintaan (CatBoost) - 120 ton")
-            map_analytics["3507"] = MapAnalyticsData(status="safe", value=500, label="Stok Aman - 500 ton")
-            map_analytics["3501"] = MapAnalyticsData(status="overstock", value=950, label="Risk: Dead Stock - 950 ton")
-
-            # Update region_data as well
-            for data in region_data:
-                if data['code'] == "3573":
-                    data.update({'value': 120, 'status': 'critical', 'label': 'Lonjakan Permintaan (CatBoost) - 120 ton'})
-                elif data['code'] == "3507":
-                    data.update({'value': 500, 'status': 'safe', 'label': 'Stok Aman - 500 ton'})
-                elif data['code'] == "3501":
-                    data.update({'value': 950, 'status': 'overstock', 'label': 'Risk: Dead Stock - 950 ton'})
-
-        # Sort regions by importance (critical first, then by value descending) and take top 4
-        def get_importance_score(region):
-            status_priority = {'critical': 4, 'warning': 3, 'overstock': 2, 'safe': 1}
-            return (status_priority.get(region['status'], 0), region['value'])
-
-        sorted_regions = sorted(region_data, key=get_importance_score, reverse=True)
-        top_regions = sorted_regions[:4]
-
-        # Generate regional insights from top 4 regions
-        regional_insights = []
-        for region in top_regions:
-            # Generate confidence score
-            confidence = random.randint(80, 98)
-
-            # Determine trend based on status
-            if region['status'] == 'critical':
-                trend = "up"
-            elif region['status'] == 'overstock':
-                trend = "down"
-            else:
-                trend = "stable"
-
-            # Determine risk level
-            if region['status'] == 'critical':
-                risk = "high"
-            elif region['status'] == 'warning':
-                risk = "medium"
-            else:
-                risk = "low"
-
-            regional_insights.append(RegionalInsight(
-                name=region['name'] if region['code'] != "3573" else "MALANG",
-                code=region['code'],
-                demand=f"{region['value']} {unit}",
-                confidence=confidence,
-                trend=trend,
-                risk=risk
-            ))
-
-        return map_analytics, regional_insights
+        except Exception:
+            traceback.print_exc()
+            return ({}, [])

@@ -7,3 +7,5 @@ pymongo
 beanie
 google-generativeai
 httpx
+catboost
+pandas
