@@ -17,6 +17,7 @@ class GenerateAIInsightUseCase(IGenerateAIInsightUseCase):
         self.chat_session_repo = chat_session_repo
         self.route_repo = route_repo
         self.forecast_use_case = forecast_use_case
+        self._model_configured = False
 
     async def execute(self, query: str, crop_type: str, region: str, season: str, session_id: Optional[str] = None) -> AIInsightResponse:
         # Parse query for dynamic forecasting parameters
@@ -157,6 +158,22 @@ class GenerateAIInsightUseCase(IGenerateAIInsightUseCase):
         
         return any(keyword in query_lower for keyword in forecast_keywords)
 
+    def _get_gemini_model(self):
+        """Get cached Gemini model instance to prevent resource leaks."""
+        from ...infrastructure.config.settings import settings
+        
+        if not settings.gemini_api_key:
+            return None
+        
+        if not self._model_configured:
+            genai.configure(api_key=settings.gemini_api_key)
+            self._model_configured = True
+        
+        if self._model is None:
+            self._model = genai.GenerativeModel('gemini-2.5-flash')
+        
+        return self._model
+    
     async def _generate_ai_response(self, query: str, forecast_data: List, metrics, crop_type: str, region: str, season: str, conversation_history: List = None) -> tuple[str, List[str]]:
         from ...infrastructure.config.settings import settings
 
@@ -164,8 +181,9 @@ class GenerateAIInsightUseCase(IGenerateAIInsightUseCase):
             return "Gemini API key not configured. Please set GEMINI_API_KEY in your .env file.", []
 
         try:
-            genai.configure(api_key=settings.gemini_api_key)
-            model = genai.GenerativeModel('gemini-2.5-flash')
+            model = self._get_gemini_model()
+            if model is None:
+                return "Gemini API key not configured. Please set GEMINI_API_KEY in your .env file.", []
 
             # Get comprehensive data from database
             context = await self._build_comprehensive_context(crop_type, region, season)
@@ -236,8 +254,9 @@ Keep responses concise but informative."""
             return ["What's the current demand trend?", "Analyze route efficiency", "Check forecasting accuracy"]
 
         try:
-            genai.configure(api_key=settings.gemini_api_key)
-            model = genai.GenerativeModel('gemini-2.5-flash')
+            model = self._get_gemini_model()
+            if model is None:
+                return ["What's the current demand trend?", "Analyze route efficiency", "Check forecasting accuracy"]
 
             # Available options for forecasting
             available_crops = ["rice", "corn", "sugarcane", "soybean"]

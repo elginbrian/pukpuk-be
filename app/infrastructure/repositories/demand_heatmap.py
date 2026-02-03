@@ -40,6 +40,8 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
         # Build Name Lookup Table
         self.global_name_map = {}
         self._build_lookup_tables()
+        
+        self._geojson_cache = {}
 
     def _build_lookup_tables(self):
         if self.MAPS_DIR.exists():
@@ -83,8 +85,8 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
                 file_path = self.MAPS_DIR / filename
                 if file_path.exists():
                     try:
-                        with open(file_path, 'r', encoding='utf-8') as f:
-                            geo_data = json.load(f)
+                        # Use cached GeoJSON data to prevent file descriptor leaks
+                        geo_data = self._load_geojson_cached(file_path)
 
                         for feature in geo_data.get("features", []):
                             p = feature.get("properties", {})
@@ -191,3 +193,14 @@ class DemandHeatmapRepository(IDemandHeatmapRepository):
         except Exception:
             traceback.print_exc()
             return ({}, [])
+    
+    def _load_geojson_cached(self, file_path: Path) -> dict:
+        """Load GeoJSON file with caching to prevent file descriptor leaks."""
+        file_key = str(file_path)
+        
+        if file_key not in self._geojson_cache:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                self._geojson_cache[file_key] = json.load(f)
+            print(f"📁 Cached GeoJSON: {file_path.name}")
+        
+        return self._geojson_cache[file_key]

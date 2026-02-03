@@ -9,3 +9,4 @@ google-generativeai
 httpx
 catboost
 pandas
+psutil

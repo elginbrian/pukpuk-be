@@ -8,6 +8,25 @@ from app.application.domain.entities import RouteOptimizationRequest, RouteOptim
 
 router = APIRouter(prefix="/route-optimization", tags=["route-optimization"])
 
+_shared_http_client: httpx.AsyncClient = None
+
+def get_http_client() -> httpx.AsyncClient:
+    """Get or create shared HTTP client for OSRM requests."""
+    global _shared_http_client
+    if _shared_http_client is None:
+        _shared_http_client = httpx.AsyncClient(
+            timeout=10.0,
+            limits=httpx.Limits(max_keepalive_connections=20, max_connections=100)
+        )
+    return _shared_http_client
+
+async def cleanup_http_client():
+    """Close shared HTTP client on shutdown."""
+    global _shared_http_client
+    if _shared_http_client is not None:
+        await _shared_http_client.aclose()
+        _shared_http_client = None
+
 # Pydantic models for routing
 class RouteDirectionsRequest(BaseModel):
     origin_coords: List[float]  # [lat, lng]
@@ -148,31 +167,32 @@ async def get_route_directions(request: RouteDirectionsRequest):
 
         print(f"Calling OSRM for {request.route_type} with waypoints: {url}")  # Debug logging
 
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(url)
-            print(f"OSRM response status: {response.status_code}")  # Debug logging
+        
+        client = get_http_client()
+        response = await client.get(url)
+        print(f"OSRM response status: {response.status_code}")  # Debug logging
 
-            if response.status_code == 200:
-                data = response.json()
-                print(f"OSRM response: {data}")  # Debug logging
+        if response.status_code == 200:
+            data = response.json()
+            print(f"OSRM response: {data}")  
 
-                if data.get('routes') and len(data['routes']) > 0:
-                    route = data['routes'][0]
-                  
-                    return {
-                        "type": "Feature",
-                        "geometry": route['geometry'],
-                        "properties": {
-                            "distance": route.get('distance'),
-                            "duration": route.get('duration'),
-                            "route_type": request.route_type
-                        }
+            if data.get('routes') and len(data['routes']) > 0:
+                route = data['routes'][0]
+              
+                return {
+                    "type": "Feature",
+                    "geometry": route['geometry'],
+                    "properties": {
+                        "distance": route.get('distance'),
+                        "duration": route.get('duration'),
+                        "route_type": request.route_type
                     }
-                else:
-                    raise Exception("No routes found in OSRM response")
+                }
             else:
-                print(f"OSRM error: {response.status_code} - {response.text}")
-                raise httpx.HTTPStatusError("API call failed", request=None, response=response)
+                raise Exception("No routes found in OSRM response")
+        else:
+            print(f"OSRM error: {response.status_code} - {response.text}")
+            raise httpx.HTTPStatusError("API call failed", request=None, response=response)
 
     except Exception as e:
         print(f"OSRM failed for {request.route_type}: {str(e)}")

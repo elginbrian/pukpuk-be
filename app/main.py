@@ -7,6 +7,7 @@ from .application.handler.routes.ai_insight import router as ai_insight_router
 from .application.handler.routes.route_optimization import router as route_optimization_router
 from .application.handler.routes.maps import router as maps_router
 from .application.handler.routes.demand_heatmap import router as demand_heatmap_router
+from .application.handler.routes.health import router as health_router
 
 # Initialize settings
 settings = Settings()
@@ -30,6 +31,7 @@ app.include_router(forecasting_router)
 app.include_router(ai_insight_router)
 app.include_router(route_optimization_router)
 app.include_router(demand_heatmap_router)
+app.include_router(health_router)
 
 @app.on_event("startup")
 async def startup_event():
@@ -44,6 +46,12 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     await close_database()
+    
+    try:
+        from .application.handler.routes.route_optimization import cleanup_http_client
+        await cleanup_http_client()
+    except Exception as e:
+        print(f"Error closing HTTP client: {e}")
 
 @app.get("/")
 async def root():

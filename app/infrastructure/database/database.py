@@ -14,13 +14,23 @@ db_available = False
 async def init_database():
     global client, database, db_available
     try:
-        client = AsyncIOMotorClient(settings.database_url, serverSelectionTimeoutMS=5000)
+       
+        client = AsyncIOMotorClient(
+            settings.database_url,
+            serverSelectionTimeoutMS=5000,
+            maxPoolSize=50, 
+            minPoolSize=10,  
+            maxIdleTimeMS=45000,  
+            connectTimeoutMS=10000, 
+            socketTimeoutMS=20000,  
+            retryWrites=True 
+        )
         database = client[settings.database_name]
         # Test connection
         await client.admin.command('ping')
         await init_beanie(database, document_models=[ForecastData, Metrics, AIInsight, ChatSession, ChatMessage, Location, Vehicle, RouteConfiguration, RegionMappings])
         db_available = True
-        logger.info("Database connected successfully")
+        logger.info("Database connected successfully with connection pooling")
     except Exception as e:
         logger.warning(f"Database connection failed: {e}. Using mock data mode.")
         db_available = False
